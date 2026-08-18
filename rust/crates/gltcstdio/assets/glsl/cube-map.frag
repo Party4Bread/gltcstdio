@@ -1,0 +1,761 @@
+#version 450
+layout(location = 0) in vec2 v_uv;
+layout(location = 0) out vec4 fragColor;
+
+layout(binding = 0, std140) uniform Params {
+    vec4 U[13];
+};
+layout(binding = 1) uniform sampler samp;
+layout(binding = 2) uniform texture2D t_source;
+
+#define u_source sampler2D(t_source, samp)
+#define u_worldAspect (U[0].x)
+#define u_viewTransform (mat3(U[1].xyz, U[2].xyz, U[3].xyz))
+#define u_sourceDim (U[4].xy)
+#define u_outDim (U[5].xy)
+#define u_model3DTransform (mat4(U[6], U[7], U[8], U[9]))
+#define u_texTransform (mat3(U[10].xyz, U[11].xyz, U[12].xyz))
+
+#define __source__texelFetch__(c) texelFetch(u_source, (c), 0)
+#define __source__(p) texture(u_source, __mirror_wrap__(vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+
+
+
+
+// gltcstdio GLSL support library.
+// Every function below was verified to compile against GL 3.3.
+// Prototypes precede bodies so intra-library call order is irrelevant.
+
+#define INF 1e20
+#define PI 3.141592653589793
+#define PI2 6.283185307179586
+#define PI4 12.566370614359172
+#define PI_2 1.5707963267948966
+#define PI_3 1.0471975511965976
+#define PI2_3 2.0943951023931953
+#define SQRT3 1.7320508075688772
+#define SQRT3_2 0.8660254037844386
+#define SQRT3_6 0.288675134594813
+#define SQRT2 1.4142135623730951
+#define SQRT2_2 0.7071067811865476
+#define THIRD 0.33333333333
+#define TWO_THIRDS 0.666666666667
+
+struct HexTile {
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct CairoTile {
+    vec2 center;
+    float borderDist;
+};
+struct TriangleTile {
+    bool up;
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct Tile {
+    float centerDist;
+    vec2 tileId;
+    float borderDist;
+    vec2 center;
+    vec2 borderNormal;
+    float secondCenterDist;
+    vec2 secondTileId;    
+    float thirdCenterDist;
+};
+
+// ---- prototypes ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---- bodies ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// allow vec4's
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+vec2 __mirror_wrap__(vec2 c) {
+    return 1.0 - abs(mod(c, 2.0) - 1.0);
+}
+
+vec4 cubeMap2Gl(vec2 pos, vec2 outPos, mat4 model3DTransform, mat3 texTransform, vec2 sourceDim) {
+    // The pinch gesture bakes a uniform scale into model3DTransform (the
+    // rotation touch client captures it). Scaling the cube is geometrically
+    // inert for an environment map, so consume that scale as a view zoom:
+    // dividing pos by it narrows / widens the field of view.
+    float zoom = length(model3DTransform[0].xyz);
+    vec3 dir = normalize(vec3(pos.x / zoom, pos.y / zoom, -1.0));
+    mat4 inv = inverse(model3DTransform);
+    dir = mat3(inv[0].xyz, inv[1].xyz, inv[2].xyz) * dir;
+    float ratio = 1.0;
+    float X = 0.5;
+    float Y = 0.5;
+    if (abs(dir.y) > abs(dir.z) * ratio && abs(dir.y) > abs(dir.x) * ratio) {
+        X += -dir.x / dir.y * 0.5;
+        Y += -dir.z / dir.y * 0.5;
+    }
+    else if (abs(dir.x) < abs(dir.z)) {
+        X += dir.x / abs(dir.z) * ratio * 0.5 * -sign(dir.z);
+        Y += dir.y / abs(dir.z) * 0.5;
+    }
+    else {
+        X += dir.z / abs(dir.x) * ratio * 0.5 * -sign(dir.x);
+        Y += dir.y / abs(dir.x) * 0.5;
+    }
+    // Fit the [0,1] face square into the largest centered square inside the image.
+    float ar = sourceDim.x / sourceDim.y;
+    float m = min(ar, 1.0);
+    vec2 centered = (vec2(X, Y) * 2.0 - 1.0) * m;
+    // texTransform is a view onto the source, so apply its inverse to the sample
+    // coords: a drag/pinch then moves the image itself the natural way.
+    vec2 uv = (inverse(texTransform) * vec3(centered, 1.0)).xy;
+    return __source__(uv);
+}
+
+void main() {
+    fragColor = cubeMap2Gl((inverse(u_viewTransform) * vec3(((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), 1.0)).xy, ((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), u_model3DTransform, u_texTransform, u_sourceDim);
+}

@@ -1,0 +1,275 @@
+struct Params {
+    U: array<vec4<f32>, 17>,
+}
+
+struct HexTile {
+    center: vec2<f32>,
+    pos: vec2<f32>,
+    angle: f32,
+    centerDist: f32,
+    borderDist: f32,
+}
+
+struct CairoTile {
+    center: vec2<f32>,
+    borderDist: f32,
+}
+
+struct TriangleTile {
+    up: bool,
+    center: vec2<f32>,
+    pos: vec2<f32>,
+    angle: f32,
+    centerDist: f32,
+    borderDist: f32,
+}
+
+struct Tile {
+    centerDist: f32,
+    tileId: vec2<f32>,
+    borderDist: f32,
+    center: vec2<f32>,
+    borderNormal: vec2<f32>,
+    secondCenterDist: f32,
+    secondTileId: vec2<f32>,
+    thirdCenterDist: f32,
+}
+
+struct FragmentOutput {
+    @location(0) fragColor: vec4<f32>,
+}
+
+var<private> v_uv_1: vec2<f32>;
+var<private> fragColor: vec4<f32>;
+@group(0) @binding(0) 
+var<uniform> global: Params;
+@group(0) @binding(1) 
+var samp: sampler;
+@group(0) @binding(2) 
+var t_source: texture_2d<f32>;
+
+fn _mirror_wrap(c: vec2<f32>) -> vec2<f32> {
+    var c_1: vec2<f32>;
+
+    c_1 = c;
+    let _e9 = c_1;
+    let _e11 = vec2(2f);
+    return (vec2(1f) - abs(((_e9 - (floor((_e9 / _e11)) * _e11)) - vec2(1f))));
+}
+
+fn nextRot(i: i32, angle: f32) -> f32 {
+    var i_1: i32;
+    var angle_1: f32;
+
+    i_1 = i;
+    angle_1 = angle;
+    let _e10 = angle_1;
+    let _e11 = i_1;
+    return (_e10 * f32((_e11 + 1i)));
+}
+
+fn rotation3_(angle_2: f32) -> mat3x3<f32> {
+    var angle_3: f32;
+    var ca: f32;
+    var sa: f32;
+
+    angle_3 = angle_2;
+    let _e8 = angle_3;
+    ca = cos(_e8);
+    let _e11 = angle_3;
+    sa = sin(_e11);
+    let _e14 = ca;
+    let _e15 = sa;
+    let _e17 = sa;
+    let _e19 = ca;
+    return mat3x3<f32>(vec3<f32>(_e14, _e15, 0f), vec3<f32>(-(_e17), _e19, 0f), vec3<f32>(0f, 0f, 1f));
+}
+
+fn tf(m: mat3x3<f32>, u: vec2<f32>) -> vec2<f32> {
+    var m_1: mat3x3<f32>;
+    var u_1: vec2<f32>;
+
+    m_1 = m;
+    u_1 = u;
+    let _e10 = m_1;
+    let _e11 = u_1;
+    return (_e10 * vec3<f32>(_e11.x, _e11.y, 1f)).xy;
+}
+
+fn translation3_(t: vec2<f32>) -> mat3x3<f32> {
+    var t_1: vec2<f32>;
+
+    t_1 = t;
+    let _e14 = t_1;
+    let _e16 = t_1;
+    return mat3x3<f32>(vec3<f32>(1f, 0f, 0f), vec3<f32>(0f, 1f, 0f), vec3<f32>(_e14.x, _e16.y, 1f));
+}
+
+fn wave(u_2: vec2<f32>, k: f32, w: f32) -> vec2<f32> {
+    var u_3: vec2<f32>;
+    var k_1: f32;
+    var w_1: f32;
+    var local: vec2<f32>;
+
+    u_3 = u_2;
+    k_1 = k;
+    w_1 = w;
+    let _e12 = w_1;
+    if (_e12 >= 0f) {
+        let _e16 = k_1;
+        let _e17 = u_3;
+        let _e28 = k_1;
+        let _e29 = u_3;
+        let _e36 = w_1;
+        local = mix(vec2<f32>(0f, (_e16 * (abs(sin((_e17.x * 2f))) - 0.5f))), vec2<f32>(0f, (_e28 * sin((_e29.x * 2f)))), vec2(_e36));
+    } else {
+        let _e40 = k_1;
+        let _e41 = u_3;
+        let _e52 = k_1;
+        let _e53 = u_3;
+        let _e57 = w_1;
+        let _e60 = u_3;
+        let _e74 = w_1;
+        local = mix(vec2<f32>(0f, (_e40 * (abs(sin((_e41.x * 2f))) - 0.5f))), vec2<f32>(0f, (_e52 * (abs(sin(((_e53.x * 2f) + ((_e57 * 3f) * sin((_e60.y * 0.3f)))))) - 0.5f))), vec2(min(1f, -(_e74))));
+    }
+    let _e80 = local;
+    return _e80;
+}
+
+fn turbulence2_(uv: vec2<f32>, outPos: vec2<f32>, intensity: f32, dampening: f32, balance: f32, iterations: i32, modelTransform: mat3x3<f32>, iterTransform: mat3x3<f32>, translation: f32, angle_4: f32) -> vec4<f32> {
+    var uv_1: vec2<f32>;
+    var outPos_1: vec2<f32>;
+    var intensity_1: f32;
+    var dampening_1: f32;
+    var balance_1: f32;
+    var iterations_1: i32;
+    var modelTransform_1: mat3x3<f32>;
+    var iterTransform_1: mat3x3<f32>;
+    var translation_1: f32;
+    var angle_5: f32;
+    var t_2: mat3x3<f32>;
+    var i_2: i32 = 0i;
+    var p: vec2<f32>;
+
+    uv_1 = uv;
+    outPos_1 = outPos;
+    intensity_1 = intensity;
+    dampening_1 = dampening;
+    balance_1 = balance;
+    iterations_1 = iterations;
+    modelTransform_1 = modelTransform;
+    iterTransform_1 = iterTransform;
+    translation_1 = translation;
+    angle_5 = angle_4;
+    let _e26 = modelTransform_1;
+    t_2 = _naga_inverse_3x3_f32(_e26);
+    loop {
+        let _e31 = i_2;
+        let _e32 = iterations_1;
+        if !((_e31 < _e32)) {
+            break;
+        }
+        {
+            let _e38 = t_2;
+            let _e39 = uv_1;
+            let _e40 = tf(_e38, _e39);
+            uv_1 = _e40;
+            let _e41 = uv_1;
+            let _e42 = uv_1;
+            let _e43 = intensity_1;
+            let _e44 = balance_1;
+            let _e45 = wave(_e42, _e43, _e44);
+            uv_1 = (_e41 + _e45);
+            let _e47 = intensity_1;
+            let _e49 = dampening_1;
+            intensity_1 = (_e47 * (1f - _e49));
+            let _e52 = t_2;
+            let _e54 = uv_1;
+            let _e55 = tf(_naga_inverse_3x3_f32(_e52), _e54);
+            uv_1 = _e55;
+            p = vec2(0f);
+            let _e59 = t_2;
+            let _e64 = translation_1;
+            let _e66 = translation3_((vec2<f32>(0.02f, -0.01f) * _e64));
+            let _e67 = i_2;
+            let _e68 = angle_5;
+            let _e69 = nextRot(_e67, _e68);
+            let _e70 = rotation3_(_e69);
+            let _e72 = iterTransform_1;
+            t_2 = (_e59 * ((_e66 * _e70) * _e72));
+        }
+        continuing {
+            let _e35 = i_2;
+            i_2 = (_e35 + 1i);
+        }
+    }
+    let _e75 = uv_1;
+    let _e79 = global.U[0];
+    let _e82 = uv_1;
+    let _e91 = _mirror_wrap(((vec2<f32>((_e75.x / _e79.x), _e82.y) / vec2(2f)) + vec2(0.5f)));
+    let _e92 = textureSample(t_source, samp, _e91);
+    return _e92;
+}
+
+fn main_1() {
+    let _e8 = global.U[1];
+    let _e9 = _e8.xyz;
+    let _e12 = global.U[2];
+    let _e13 = _e12.xyz;
+    let _e16 = global.U[3];
+    let _e17 = _e16.xyz;
+    let _e32 = v_uv_1;
+    let _e40 = global.U[0];
+    let _e44 = (((_e32 - vec2(0.5f)) * 2f) * vec2<f32>(_e40.x, 1f));
+    let _e51 = v_uv_1;
+    let _e59 = global.U[0];
+    let _e66 = global.U[5];
+    let _e70 = global.U[6];
+    let _e74 = global.U[7];
+    let _e78 = global.U[8];
+    let _e83 = global.U[9];
+    let _e84 = _e83.xyz;
+    let _e87 = global.U[10];
+    let _e88 = _e87.xyz;
+    let _e91 = global.U[11];
+    let _e92 = _e91.xyz;
+    let _e108 = global.U[12];
+    let _e109 = _e108.xyz;
+    let _e112 = global.U[13];
+    let _e113 = _e112.xyz;
+    let _e116 = global.U[14];
+    let _e117 = _e116.xyz;
+    let _e133 = global.U[15];
+    let _e137 = global.U[16];
+    let _e139 = turbulence2_((_naga_inverse_3x3_f32(mat3x3<f32>(vec3<f32>(_e9.x, _e9.y, _e9.z), vec3<f32>(_e13.x, _e13.y, _e13.z), vec3<f32>(_e17.x, _e17.y, _e17.z))) * vec3<f32>(_e44.x, _e44.y, 1f)).xy, (((_e51 - vec2(0.5f)) * 2f) * vec2<f32>(_e59.x, 1f)), _e66.x, _e70.x, _e74.x, i32(_e78.x), mat3x3<f32>(vec3<f32>(_e84.x, _e84.y, _e84.z), vec3<f32>(_e88.x, _e88.y, _e88.z), vec3<f32>(_e92.x, _e92.y, _e92.z)), mat3x3<f32>(vec3<f32>(_e109.x, _e109.y, _e109.z), vec3<f32>(_e113.x, _e113.y, _e113.z), vec3<f32>(_e117.x, _e117.y, _e117.z)), _e133.x, _e137.x);
+    fragColor = _e139;
+    return;
+}
+
+@fragment 
+fn main(@location(0) v_uv: vec2<f32>) -> FragmentOutput {
+    v_uv_1 = v_uv;
+    main_1();
+    let _e13 = fragColor;
+    return FragmentOutput(_e13);
+}
+
+fn _naga_inverse_3x3_f32(m: mat3x3<f32>) -> mat3x3<f32> {
+    var adj: mat3x3<f32>;
+
+    adj[0][0] =   (m[1][1] * m[2][2] - m[2][1] * m[1][2]);
+    adj[1][0] = - (m[1][0] * m[2][2] - m[2][0] * m[1][2]);
+    adj[2][0] =   (m[1][0] * m[2][1] - m[2][0] * m[1][1]);
+    adj[0][1] = - (m[0][1] * m[2][2] - m[2][1] * m[0][2]);
+    adj[1][1] =   (m[0][0] * m[2][2] - m[2][0] * m[0][2]);
+    adj[2][1] = - (m[0][0] * m[2][1] - m[2][0] * m[0][1]);
+    adj[0][2] =   (m[0][1] * m[1][2] - m[1][1] * m[0][2]);
+    adj[1][2] = - (m[0][0] * m[1][2] - m[1][0] * m[0][2]);
+    adj[2][2] =   (m[0][0] * m[1][1] - m[1][0] * m[0][1]);
+
+    let det: f32 = (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+    		- m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+    		+ m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]));
+
+    return adj * (1 / det);
+}

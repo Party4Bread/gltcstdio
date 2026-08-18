@@ -1,0 +1,907 @@
+#version 450
+layout(location = 0) in vec2 v_uv;
+layout(location = 0) out vec4 fragColor;
+
+layout(binding = 0, std140) uniform Params {
+    vec4 U[10];
+};
+layout(binding = 1) uniform sampler samp;
+
+#define u_worldAspect (U[0].x)
+#define u_viewTransform (mat3(U[1].xyz, U[2].xyz, U[3].xyz))
+#define u_outDim (U[4].xy)
+#define u_color1 (U[5])
+#define u_color2 (U[6])
+#define u_radius (U[7].x)
+#define u_randomSeed (U[8].x)
+#define u_mode (int(U[9].x))
+
+
+
+
+
+// gltcstdio GLSL support library.
+// Every function below was verified to compile against GL 3.3.
+// Prototypes precede bodies so intra-library call order is irrelevant.
+
+#define INF 1e20
+#define PI 3.141592653589793
+#define PI2 6.283185307179586
+#define PI4 12.566370614359172
+#define PI_2 1.5707963267948966
+#define PI_3 1.0471975511965976
+#define PI2_3 2.0943951023931953
+#define SQRT3 1.7320508075688772
+#define SQRT3_2 0.8660254037844386
+#define SQRT3_6 0.288675134594813
+#define SQRT2 1.4142135623730951
+#define SQRT2_2 0.7071067811865476
+#define THIRD 0.33333333333
+#define TWO_THIRDS 0.666666666667
+
+struct HexTile {
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct CairoTile {
+    vec2 center;
+    float borderDist;
+};
+struct TriangleTile {
+    bool up;
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct Tile {
+    float centerDist;
+    vec2 tileId;
+    float borderDist;
+    vec2 center;
+    vec2 borderNormal;
+    float secondCenterDist;
+    vec2 secondTileId;    
+    float thirdCenterDist;
+};
+
+// ---- prototypes ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---- bodies ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// allow vec4's
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+float inCircle(vec2 c, float r, vec2 p) {
+    return length(c-p)<r ? 1.0 : 0.0;
+}
+
+float inCircle2(float a, float d, float r, vec2 p) {
+    return inCircle(d*vec2(-sin(a), cos(a)), r, p);
+
+}
+
+float inRosace(float r1, float r2, int N, vec2 p) {
+    float di = length(p);
+    if (di<r1 || di>r2) return 0.0;
+
+    float r = (r2-r1)/2.0;
+    float d = r2-r;
+    float inside = 0.0;
+    for(int i=0; i<N; ++i) {
+        float a = PI2*float(i)/float(N);
+        inside += inCircle2(a, d, r, p);
+    }
+    return inside;
+}
+
+float makeDivisible(float a, float b) {
+    if (a>b) {
+        return b*floor(a/b+0.5);
+    }
+    else {
+        return a*floor(b/a+0.5);
+    }
+}
+
+vec2 rand2(vec2 v) {
+    float x = fract(sin(dot(v.xy ,vec2(12.9898,78.233))) * 43758.5453);
+    float y = fract(sin(dot(vec2(x, v.x) ,vec2(12.9898,78.233))) * 43758.5453);
+    return vec2(x, y);
+}
+
+float varyNoiseSmoothly(float noise, float k) {
+    float phase = acos(2.0*noise-1.0);
+    float freq = fract(noise*16.0) + 0.5;
+    return (1.0+cos(phase+freq*k))*0.5;
+}
+
+vec2 varyVec2NoiseSmoothly(vec2 noise, float k) {
+    return vec2(varyNoiseSmoothly(noise.x, k), varyNoiseSmoothly(noise.y, k));
+}
+
+vec2 rand2relSeeded(vec2 co, float seed) {
+    return varyVec2NoiseSmoothly(rand2(co), seed)-0.5;
+}
+
+float getInsideRosace(vec2 u, vec2 id, float radius, float randomSeed) {
+    vec2 pos = u / radius;
+    if (length(pos)>0.75) return 0.0;
+    
+    float inside = 0.0;
+
+    vec2 rnd = rand2relSeeded(id, randomSeed)+vec2(0.5, 0.5);
+
+    int levels = int(1.0 + floor(rnd.x*3.0));
+
+    float N = 1.0;
+    float r1 = 0.75;
+    float r2;
+
+    if (id.x==0.0 && id.y==0.0 && randomSeed==0.0) {
+        inside += inRosace(0.0, 0.25, 24, pos);
+        inside += inRosace(0.25, 0.35, 12, pos);
+        inside += inRosace(0.35, 0.75, 60, pos);
+    }
+    else for(int j=0; j<levels; ++j) {
+        rnd = rand2relSeeded(rnd, randomSeed)+vec2(0.5, 0.5);
+        r2 = r1;
+        r1 = r1 * rnd.x;
+        if (r1/r2>0.9) r1 = r2*0.9;
+        if (r1<0.05) r1 = 0.0;
+        N = makeDivisible(N, floor(rnd.y*rnd.y*60.0)+2.0);
+        inside += inRosace(r1, r2, int(N), pos);
+    }
+    
+    return inside;
+}
+
+vec4 hexCoords(vec2 v) {
+    vec2 r = vec2(1.0, SQRT3);
+    vec2 h = r/2.0;
+    vec2 a = vec2(mod(v.x, r.x), mod(v.y, r.y))-h;
+    vec2 b = vec2(mod(v.x-h.x, r.x), mod(v.y-h.y, r.y))-h;
+    vec2 hv = length(a)<length(b) ? a : b;
+    vec2 id = v-hv;
+    return vec4(hv, id);
+}
+
+vec4 hexPolarCoords(vec2 v) {
+    vec2 r = vec2(1.0, SQRT3);
+    vec2 h = r/2.0;
+    vec2 a = vec2(mod(v.x, r.x), mod(v.y, r.y))-h;
+    vec2 b = vec2(mod(v.x-h.x, r.x), mod(v.y-h.y, r.y))-h;
+    vec2 hv = length(a)<length(b) ? a : b;
+    float x = atan(hv.y, hv.x);
+    float y = length(hv);
+    vec2 id = v-hv;
+    return vec4(x, y, id);
+}
+
+vec4 rosaces(vec2 pos, vec2 outPos, vec4 color1, vec4 color2, float radius, float randomSeed, int mode) {
+
+    vec4 hexCoord = hexCoords(pos);
+    vec2 gridPos = hexCoord.xy;
+    vec2 gridIndex = floor(hexCoord.zw * vec2(2.0, 2.0*SQRT3) + 0.5);
+
+//    vec4 hexCoord = hexPolarCoords(pos);
+//    vec2 gridPos = hexCoord.y*vec2(cos(hexCoord.x), sin(hexCoord.x));
+//    vec2 gridIndex = floor(hexCoord.zw*1000.+0.5)*0.001;
+
+    pos = gridPos / radius;
+    float inside = 0.0;
+    
+    inside += getInsideRosace(gridPos, gridIndex, radius, randomSeed);
+    if (radius>0.66) {
+        inside += getInsideRosace(gridPos-vec2(1., 0.), gridIndex+vec2(2., 0.), radius, randomSeed);
+        inside += getInsideRosace(gridPos+vec2(1., 0.), gridIndex-vec2(2., 0.), radius, randomSeed);
+        inside += getInsideRosace(gridPos-vec2(0.5, SQRT3_2), gridIndex+vec2(1., 3.), radius, randomSeed);
+        inside += getInsideRosace(gridPos-vec2(-0.5, SQRT3_2), gridIndex+vec2(-1., 3.), radius, randomSeed);
+        inside += getInsideRosace(gridPos-vec2(0.5, -SQRT3_2), gridIndex+vec2(1., -3.), radius, randomSeed);
+        inside += getInsideRosace(gridPos-vec2(-0.5, -SQRT3_2), gridIndex+vec2(-1., -3.), radius, randomSeed);
+    }
+
+    /*vec2 rnd = rand2relSeeded(gridIndex, randomSeed)+vec2(0.5, 0.5);
+
+    int levels = int(1.0 + floor(rnd.x*3.0));
+
+    float N = 1.0;
+    float r1 = 0.75;
+    float r2;
+
+    if (gridIndex.x==0.0 && gridIndex.y==0.0 && randomSeed==0.0) {
+        inside += inRosace(0.0, 0.25, 24, pos);
+        inside += inRosace(0.25, 0.35, 12, pos);
+        inside += inRosace(0.35, 0.75, 60, pos);
+    }
+    else for(int j=0; j<levels; ++j) {
+        rnd = rand2relSeeded(rnd, randomSeed)+vec2(0.5, 0.5);
+        r2 = r1;
+        r1 = r1 * rnd.x;
+        if (r1/r2>0.9) r1 = r2*0.9;
+        if (r1<0.05) r1 = 0.0;
+        N = makeDivisible(N, floor(rnd.y*rnd.y*60.0)+2.0);
+        inside += inRosace(r1, r2, int(N), pos);
+    }*/
+    
+    float k;
+     if (mode==0) k = mod(inside, 2.0)<1.0 ? 1.0 : 0.0;
+     else if (mode==1) k = pow(0.8, inside);
+     else if (mode==2) k = mod(inside, 2.0)<1.0 ? pow(0.8, inside) : 1.0-pow(0.8, inside);
+     else k = 0.5;
+    
+//    float coordK = 1.0;
+//    float y = (gridPos.y*20.0 + 0.0);
+//    if (gridPos.x>-0.1 && gridPos.x<-0.05) {
+//        if (y>0.0 && gridIndex.x>floor(y) && fract(y)>0.1 && fract(y)<0.9) coordK = 0.0;
+//    }
+//    else if (gridPos.x>0.05 && gridPos.x<0.1) {
+//        if (y>0.0 && gridIndex.y>floor(y) && fract(y)>0.1 && fract(y)<0.9) coordK = 0.5;
+//    }
+//    return vec4(coordK * fract(gridIndex*0.1), 0.0, 1.0);
+
+    return mix(color2, color1, k);
+}
+
+void main() {
+    fragColor = rosaces((inverse(u_viewTransform) * vec3(((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), 1.0)).xy, ((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), u_color1, u_color2, u_radius, u_randomSeed, u_mode);
+}

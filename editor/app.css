@@ -1,0 +1,595 @@
+:root {
+  --bg: #0e0f13;
+  --panel: #16181f;
+  --panel-2: #1d202a;
+  --line: #272b38;
+  --text: #e7e9f0;
+  --muted: #8b91a4;
+  --accent: #6ea8fe;
+  --accent-dim: #2b4a7d;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+/* Any rule that sets `display` beats the browser's own
+   `[hidden] { display: none }`, which leaves an element the page believes is
+   hidden sitting there taking clicks. This settles it for every one of them. */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+
+.brand h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: .2px;
+}
+
+.mark {
+  width: 18px; height: 18px;
+  border-radius: 5px;
+  background:
+    radial-gradient(circle at 30% 30%, #fff 1.5px, transparent 2px) 0 0/6px 6px,
+    linear-gradient(135deg, var(--accent), #b58cff);
+}
+
+.meta { color: var(--muted); font-size: 12px; margin-right: auto; }
+
+.topActions { display: flex; gap: 8px; }
+
+.btn {
+  display: inline-block;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) { border-color: var(--accent-dim); background: #232735; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.wide { width: 100%; margin-top: 14px; }
+
+/* ---------- layout ---------- */
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 260px 1fr 300px;
+  min-height: 0;
+}
+
+.sidebar, .controls {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar { border-right: 1px solid var(--line); }
+.controls { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; }
+
+/* ---------- filter list ---------- */
+
+#search {
+  margin: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  flex: none;
+}
+
+#search:focus { outline: none; border-color: var(--accent-dim); }
+
+.catbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 12px 10px;
+  flex: none;
+  /* Four rows of chips exactly, so a scrolled list never shows half a row. */
+  max-height: 125px;
+  overflow-y: auto;
+}
+
+.chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.chip:hover { color: var(--text); }
+.chip.on { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
+
+.filterlist {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.filterlist li {
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.filterlist li:hover { background: var(--panel-2); }
+.filterlist li.on { background: var(--accent-dim); }
+.filterlist .cat { color: var(--muted); font-size: 11px; margin-left: auto; }
+
+/* Shown only where a name belongs to more than one filter. */
+.filterlist .qualifier {
+  color: #6b7387;
+  font-size: 10.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.filterlist li.on .qualifier { color: #a8bfe4; }
+.filterlist li.on .cat { color: #cfe0ff; }
+
+.badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #3a2f16;
+  color: #f0c674;
+  border: 1px solid #5a4820;
+}
+
+/* ---------- stage ---------- */
+
+.stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+/* The preview takes the upper half; the chain is edited below it, so a change
+   to a node and its effect are both on screen. */
+.preview {
+  flex: 1 1 52%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.canvasWrap {
+  flex: 1;
+  display: grid;
+  /* A `minmax(0, 1fr)` track is what the canvas measures its `max-height`
+     against; an auto track would grow to the image and overflow the stage. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  padding: 22px;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background:
+    linear-gradient(45deg, #15171d 25%, transparent 25%, transparent 75%, #15171d 75%) 0 0/24px 24px,
+    linear-gradient(45deg, #15171d 25%, #101218 25%, #101218 75%, #15171d 75%) 12px 12px/24px 24px;
+}
+
+/* Preview, original and dropzone share the one grid cell, so the compare
+   toggle swaps two canvases that are laid out identically. */
+#preview, #original, .dropzone { grid-area: 1 / 1; }
+#original { z-index: 1; }
+
+.dropzone {
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 46px 60px;
+  text-align: center;
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+}
+
+.dropzone strong { color: var(--text); font-weight: 600; }
+
+.canvasWrap.dragging .dropzone { border-color: var(--accent); color: var(--text); }
+
+.stagebar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 9px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.compare { margin-left: auto; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+.spinner {
+  position: absolute;
+  top: 14px; right: 16px;
+  width: 17px; height: 17px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- controls ---------- */
+
+.controlsHead h2 { font-size: 15px; margin: 0 0 3px; }
+.controlsHead p { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 16px; }
+
+.secondSlot { margin-bottom: 14px; }
+.secondSlot .btn { margin-top: 0; }
+.secondSlot .note { color: var(--muted); font-size: 11.5px; margin: 5px 0 0; }
+.secondSlot.set .btn { border-color: var(--accent-dim); }
+
+.params { display: grid; gap: 15px; }
+
+.param label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  margin-bottom: 5px;
+}
+
+.param .val { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+input[type=range] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+select, input[type=number] {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+input[type=color] {
+  width: 100%;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.vecrow { display: flex; gap: 6px; }
+
+.inferred {
+  font-size: 10px;
+  color: #7d7443;
+  border: 1px solid #4a4326;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.empty { color: var(--muted); font-size: 12.5px; }
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 210px 1fr 260px; }
+}
+
+
+/* --- controls added for the richer parameter types --- */
+
+.subrow {
+  display: grid;
+  grid-template-columns: 5.2rem 1fr;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .25rem;
+}
+
+.sublabel {
+  font-size: .72rem;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+
+.param input.text {
+  width: 100%;
+  padding: .35rem .5rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--fg);
+  font: inherit;
+  font-size: .82rem;
+}
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  margin-bottom: .3rem;
+}
+
+.palette input[type=color] {
+  width: 1.9rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: none;
+}
+
+h3.group {
+  margin: 1.1rem 0 .3rem;
+  padding-top: .7rem;
+  border-top: 1px solid var(--line);
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The image is a canvas now rather than an <img>, so it needs the same fit. */
+.canvasWrap canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
+}
+
+/* Shown when the browser has no WebGPU device: without one there is nothing
+   to render with, so the page says so rather than failing silently. */
+
+
+.blocker {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgba(10, 11, 14, .93);
+  backdrop-filter: blur(3px);
+  z-index: 50;
+}
+
+.blocker > div { max-width: 34rem; text-align: center; }
+.blocker h2 { margin: 0 0 .5rem; font-size: 1.3rem; }
+.blocker p { margin: .4rem 0; color: var(--dim, #9aa0aa); line-height: 1.5; }
+.blocker code {
+  padding: .1em .35em;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .08);
+  font-size: .9em;
+}
+
+
+/* ---------- node editor ---------- */
+
+.graph {
+  flex: 1 1 48%;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background:
+    radial-gradient(circle, #232735 1px, transparent 1.2px) 0 0/22px 22px,
+    var(--bg);
+  cursor: grab;
+}
+
+.graph.panning { cursor: grabbing; }
+
+.wires, .nodes {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+}
+
+.wires { overflow: visible; pointer-events: none; }
+.nodes { pointer-events: none; }
+
+.wires path {
+  fill: none;
+  stroke: var(--accent-dim);
+  stroke-width: 2;
+}
+
+.wires path.live { stroke: var(--accent); stroke-dasharray: 5 4; }
+
+.node {
+  position: absolute;
+  width: 178px;
+  pointer-events: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+  cursor: grab;
+  user-select: none;
+}
+
+.node.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 6px 20px rgba(0,0,0,.45); }
+.node.dragging { cursor: grabbing; }
+.node.ends { border-style: dashed; }
+
+.node header {
+  padding: 7px 10px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* The name gives way; the badge and the remove button keep their size, so a
+   long filter name is clipped rather than pushing them out of the node. */
+.node header > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.node header .kind {
+  margin-left: auto;
+  flex: none;
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+/* An image node's picture is the way to change it. */
+.node .thumb.pick { cursor: pointer; }
+.node .thumb.pick:hover { outline: 2px solid var(--accent-dim); outline-offset: -2px; }
+
+.node .thumb {
+  display: block;
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  background: #0b0c10;
+  border-bottom: 1px solid var(--line);
+}
+
+.node .ports { padding: 5px 0 7px; }
+
+.node .port {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.node .port .dot {
+  position: absolute;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--muted);
+  cursor: crosshair;
+}
+
+.node .port .dot:hover, .node .port .dot.hot { border-color: var(--accent); background: var(--accent); }
+.node .port.in .dot { left: -6px; }
+.node .port.out { justify-content: flex-end; }
+.node .port.out .dot { right: -6px; }
+.node .port .dot.filled { background: var(--accent-dim); border-color: var(--accent-dim); }
+
+.node .drop {
+  padding: 3px 10px 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.node .remove {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.node .remove:hover { color: #ff8a8a; }
+
+.graphbar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: linear-gradient(transparent, var(--panel) 55%);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.graphbar .spacer { flex: 1; }
+.graphbar .chip { pointer-events: auto; }
+
+.hint {
+  flex: none;
+  margin: 0 12px 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+/* The WebGPU blocker: a diagnosis, then what to do, then the driver's words. */
+.blocker .remedies {
+  margin: 14px 0 16px;
+  padding-left: 20px;
+  display: grid;
+  gap: 7px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.blocker .remedies code {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+#blockerLead { color: var(--text); font-size: 13.5px; line-height: 1.5; }
+#blockerWhy { font-size: 11.5px; opacity: .75; }

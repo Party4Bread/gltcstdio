@@ -1,0 +1,19 @@
+work/
+decompiled/
+.venv/
+__pycache__/
+*.pyc
+*.xapk
+.playwright-mcp/
+*.png
+!gltcstdio/data/**
+rust/target/
+editor/pkg/
+editor/dist/
+editor/node_modules/
+
+# Built by maturin into the source tree.
+*.abi3.so
+*.so
+# The static site: built by editor/pages.sh, published as the gh-pages branch.
+dist/

@@ -1,0 +1,4 @@
+# Built by editor/build.sh: the wasm module and the compiled page.
+pkg/
+dist/
+node_modules/

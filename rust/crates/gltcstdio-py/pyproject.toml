@@ -1,0 +1,23 @@
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "gltcstdio-rs"
+description = "769 image filters on wgpu/WebGPU and the CPU, chainable into graphs"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Multimedia :: Graphics",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+numpy = ["numpy>=1.24"]
+pillow = ["pillow>=10.0"]
+
+[tool.maturin]
+module-name = "gltcstdio_rs._native"
+python-source = "python"
+features = ["pyo3/extension-module"]

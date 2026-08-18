@@ -1,0 +1,1009 @@
+#version 450
+layout(location = 0) in vec2 v_uv;
+layout(location = 0) out vec4 fragColor;
+
+layout(binding = 0, std140) uniform Params {
+    vec4 U[34];
+};
+layout(binding = 1) uniform sampler samp;
+layout(binding = 2) uniform texture2D t_source;
+layout(binding = 3) uniform texture2D t_source2;
+layout(binding = 4) uniform texture2D t_source3;
+
+#define u_source sampler2D(t_source, samp)
+#define u_source2 sampler2D(t_source2, samp)
+#define u_source3 sampler2D(t_source3, samp)
+#define u_worldAspect (U[0].x)
+#define u_viewTransform (mat3(U[1].xyz, U[2].xyz, U[3].xyz))
+#define u_sourceDim (U[4].xy)
+#define u_source2Dim (U[5].xy)
+#define u_source3Dim (U[6].xy)
+#define u_outDim (U[7].xy)
+#define u_source2_specified (int(U[8].x))
+#define u_source3_specified (int(U[9].x))
+#define u_aspectRatio (U[10].x)
+#define u_pixelation1 (U[11].x)
+#define u_pixelation2 (U[12].x)
+#define u_pixelation3 (U[13].x)
+#define u_iterations (int(U[14].x))
+#define u_intensity (U[15].x)
+#define u_balance (U[16].x)
+#define u_proximity (U[17].x)
+#define u_variability (U[18].x)
+#define u_randomSeed (U[19].x)
+#define u_color (U[20])
+#define u_thickness (U[21].x)
+#define u_modelTransform (mat3(U[22].xyz, U[23].xyz, U[24].xyz))
+#define u_windowTransform (mat3(U[25].xyz, U[26].xyz, U[27].xyz))
+#define u_windowTransform2 (mat3(U[28].xyz, U[29].xyz, U[30].xyz))
+#define u_windowTransform3 (mat3(U[31].xyz, U[32].xyz, U[33].xyz))
+
+#define __source__texelFetch__(c) texelFetch(u_source, (c), 0)
+#define __source__(p) texture(u_source, (vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+#define __source2__texelFetch__(c) texelFetch(u_source2, (c), 0)
+#define __source2__(p) texture(u_source2, (vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+#define __source3__texelFetch__(c) texelFetch(u_source3, (c), 0)
+#define __source3__(p) texture(u_source3, (vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+
+
+
+
+// gltcstdio GLSL support library.
+// Every function below was verified to compile against GL 3.3.
+// Prototypes precede bodies so intra-library call order is irrelevant.
+
+#define INF 1e20
+#define PI 3.141592653589793
+#define PI2 6.283185307179586
+#define PI4 12.566370614359172
+#define PI_2 1.5707963267948966
+#define PI_3 1.0471975511965976
+#define PI2_3 2.0943951023931953
+#define SQRT3 1.7320508075688772
+#define SQRT3_2 0.8660254037844386
+#define SQRT3_6 0.288675134594813
+#define SQRT2 1.4142135623730951
+#define SQRT2_2 0.7071067811865476
+#define THIRD 0.33333333333
+#define TWO_THIRDS 0.666666666667
+
+struct HexTile {
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct CairoTile {
+    vec2 center;
+    float borderDist;
+};
+struct TriangleTile {
+    bool up;
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct Tile {
+    float centerDist;
+    vec2 tileId;
+    float borderDist;
+    vec2 center;
+    vec2 borderNormal;
+    float secondCenterDist;
+    vec2 secondTileId;    
+    float thirdCenterDist;
+};
+
+// ---- prototypes ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---- bodies ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// allow vec4's
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+vec2 rand2(vec2 v) {
+    float x = fract(sin(dot(v.xy ,vec2(12.9898,78.233))) * 43758.5453);
+    float y = fract(sin(dot(vec2(x, v.x) ,vec2(12.9898,78.233))) * 43758.5453);
+    return vec2(x, y);
+}
+
+float varyNoiseSmoothly(float noise, float k) {
+    float phase = acos(2.0*noise-1.0);
+    float freq = fract(noise*16.0) + 0.5;
+    return (1.0+cos(phase+freq*k))*0.5;
+}
+
+vec2 varyVec2NoiseSmoothly(vec2 noise, float k) {
+    return vec2(varyNoiseSmoothly(noise.x, k), varyNoiseSmoothly(noise.y, k));
+}
+
+vec2 rand2relSeeded(vec2 co, float seed) {
+    return varyVec2NoiseSmoothly(rand2(co), seed)-0.5;
+}
+
+vec2 distort9(vec2 pos, vec4 rect, vec2 splits, float intensity, float seed) {
+    vec2 rnd = rand2relSeeded(splits, seed+122.1);
+    float dx = rect.z-rect.x;
+    float dy = rect.w-rect.y;
+    if (dx>dy) return pos + vec2(sign(rnd.x)*dx/dy*intensity*0.0005, 0.0);
+    else       return pos + vec2(0.0, sign(rnd.y)*dy/dx*intensity*0.0005);
+}
+
+vec2 fitCoord(vec2 uv, vec4 rect, float srcRatio, float pix) {
+    float ap = -pix;                                   // (0, 1]
+    float a = srcRatio;                                // copies keep the source aspect (no squish)
+    float cw = rect.z - rect.x, ch = rect.w - rect.y;
+    float nH = cw / (ch * a);
+    bool horizontal = nH >= 1.0;
+    float maxfit = max(horizontal ? floor(nH) : floor(1.0/nH), 1.0);   // copies at pix = -1
+    float cap = (ap >= 0.99) ? 1e6 : floor(pow(2.0, 10.0*ap - 1.0));   // 0 near 0, -0.1->1, -0.2->2, -0.3->4...
+    float n = min(maxfit, cap);                        // n == 0 => full streak
+    if (horizontal) {
+        float copyW = ch * a;                          // un-squished copy: full cell height tall
+        float blockW = n * copyW;
+        float startX = rect.x + (cw - blockW)*0.5;     // centre the copies; margins edge-stretch (streak)
+        float lx = uv.x - startX;
+        float u = (n <= 0.0) ? ((lx < 0.0) ? 0.0 : 1.0)                // n=0: nearest-edge streak
+                             : fract(clamp(lx, 0.0, blockW - 1e-5) / copyW);
+        float v = (uv.y - rect.y)/ch;
+        return vec2((u-0.5)*2.0*a, (v-0.5)*2.0);
+    } else {
+        float copyH = cw / a;                          // un-squished copy: full cell width wide
+        float blockH = n * copyH;
+        float startY = rect.y + (ch - blockH)*0.5;
+        float ly = uv.y - startY;
+        float u = (uv.x - rect.x)/cw;
+        float v = (n <= 0.0) ? ((ly < 0.0) ? 0.0 : 1.0)
+                             : fract(clamp(ly, 0.0, blockH - 1e-5) / copyH);
+        return vec2((u-0.5)*2.0*a, (v-0.5)*2.0);
+    }
+}
+
+vec4 inscribedRect(mat3 wt, float srcRatio) {
+    float ws = length(wt[1].xy);
+    float winA = srcRatio * length(wt[0].xy), winB = ws;
+    vec2 wax = normalize(wt[0].xy);
+    float c1 = abs(wax.x), s1 = abs(wax.y), sin2 = 2.0*c1*s1;
+    float W, H;
+    if (winA <= winB*sin2)      { W = winA/(2.0*c1); H = winA/(2.0*s1); }
+    else if (winB <= winA*sin2) { W = winB/(2.0*s1); H = winB/(2.0*c1); }
+    else { float det = c1*c1 - s1*s1; W = (winA*c1 - winB*s1)/det; H = (winB*c1 - winA*s1)/det; }
+    W = max(W, 0.0); H = max(H, 0.0);
+    vec2 wc = wt[2].xy;
+    return vec4(wc.x-W, wc.y-H, wc.x+W, wc.y+H);
+}
+
+float rounded(float x, float prec) {
+    return floor(x/prec+0.5)*prec;
+}
+
+float withBias(float x, float b) {
+    float s = sign(b);
+    float ab = abs(b);
+    return pow(x+0.5, pow(2.0, -s*ab)) - 0.5;
+}
+
+vec4 dichotomicSampling(vec2 uv, vec2 outPos, vec2 sourceDim, vec2 source2Dim, vec2 source3Dim, vec2 outDim, int source2_specified, int source3_specified, float pixelation1, float pixelation2, float pixelation3, int iterations, float intensity, float balance, float proximity, float variability, float randomSeed, vec4 color, float thickness, float aspectRatio, mat3 modelTransform, mat3 windowTransform, mat3 windowTransform2, mat3 windowTransform3) {
+    float srcRatio  = rounded(sourceDim.x/sourceDim.y, 0.01);   // source 1 AR (drives window 1)
+    float outAR     = rounded(outDim.x/outDim.y, 0.01);         // output AR (drives the subdivision)
+    float pixel = 2.0/outDim.y;
+    bool has2 = source2_specified != 0;
+    bool has3 = source3_specified != 0;
+    float src2Ratio = has2 ? rounded(source2Dim.x/source2Dim.y, 0.01) : srcRatio;   // window 2 AR
+    float src3Ratio = has3 ? rounded(source3Dim.x/source3Dim.y, 0.01) : srcRatio;   // window 3 AR
+
+    // subdivision controls (modelTransform sets depth+bias, as in dichotomic-break)
+    vec2 bias = (modelTransform*vec3(0.0, 0.0, 1.0)).xy;
+    float scale = 1.0/length(vec2(modelTransform[0][0], modelTransform[0][1]));
+    float th = thickness*0.1;
+    float regularity = 1.0-variability;
+    float var2 = 1.0-max(0.0, (regularity*2.0-1.0));
+
+    // --- window 1 (source): inside -> clean source at its own AR ---
+    float ws1 = length(windowTransform[1].xy);
+    vec2 wl1 = (inverse(windowTransform) * vec3(uv, 1.0)).xy;
+    float sxg1 = (srcRatio - abs(wl1.x)) * ws1, syg1 = (1.0 - abs(wl1.y)) * ws1;
+    if (sxg1>0.0 && syg1>0.0) return __source__(wl1);
+    bool frame = (abs(sxg1)<th && syg1>-th) || (abs(syg1)<th && sxg1>-th);
+
+    // --- window 2 (source2, optional): inside -> clean source2 ---
+    if (has2) {
+        float ws2 = length(windowTransform2[1].xy);
+        vec2 wl2 = (inverse(windowTransform2) * vec3(uv, 1.0)).xy;
+        float sxg2 = (src2Ratio - abs(wl2.x)) * ws2, syg2 = (1.0 - abs(wl2.y)) * ws2;
+        if (sxg2>0.0 && syg2>0.0) return __source2__(wl2);
+        frame = frame || (abs(sxg2)<th && syg2>-th) || (abs(syg2)<th && sxg2>-th);
+    }
+
+    // --- window 3 (source3, optional): inside -> clean source3 ---
+    if (has3) {
+        float ws3 = length(windowTransform3[1].xy);
+        vec2 wl3 = (inverse(windowTransform3) * vec3(uv, 1.0)).xy;
+        float sxg3 = (src3Ratio - abs(wl3.x)) * ws3, syg3 = (1.0 - abs(wl3.y)) * ws3;
+        if (sxg3>0.0 && syg3>0.0) return __source3__(wl3);
+        frame = frame || (abs(sxg3)<th && syg3>-th) || (abs(syg3)<th && sxg3>-th);
+    }
+
+    if (frame) { vec4 col = __source__(uv); return vec4(mix(col.rgb, color.rgb, color.a), col.a); }
+
+    // --- exclusion rectangles for each window (E2/E3 empty when the source is absent) ---
+    vec4 E1 = inscribedRect(windowTransform, srcRatio);
+    vec4 E2 = has2 ? inscribedRect(windowTransform2, src2Ratio) : vec4(1e30, 1e30, -1e30, -1e30);
+    vec4 E3 = has3 ? inscribedRect(windowTransform3, src3Ratio) : vec4(1e30, 1e30, -1e30, -1e30);
+
+    // (1) SHATTER (Schema3c): iterated dichotomic-break (mode 9), distort9 slide between passes,
+    //     parting around E1/E2/E3. Produces the displaced sample coord `p`, the shatter cell + id,
+    //     and the shatter border. Border return is deferred so a fit cell can suppress it.
+    vec2 p = uv;
+    bool shatterBorder = false;
+    vec4 rect = vec4(-outAR, -1.0, outAR, 1.0);
+    vec2 cellId = vec2(0.0);
+    for (int j=0; j<iterations; ++j) {
+        rect = vec4(-outAR, -1.0, outAR, 1.0);
+        bool horSplit = true;
+        vec2 splits = vec2(0.0, 0.0);
+        float sPos = 0.0, sscale = 0.5, inverter = 0.0;
+        vec2 b = bias;
+        for (float i=0.0; i+sPos<scale; ++i) {
+            vec2 rnd = rand2relSeeded(splits, randomSeed+122.1);
+            vec2 size = rect.zw-rect.xy;
+            if (size.x<pixel || size.y<pixel) break;
+            if (rnd.x+0.5<regularity*2.0) horSplit = size.y>size.x;
+            if (horSplit) {
+                float Y = mix(rect.y, rect.w, var2*withBias(rnd.y, b.y)+0.5);
+                if (rect.x<E1.z && rect.z>E1.x && Y>E1.y && Y<E1.w) Y = (Y-E1.y<E1.w-Y) ? E1.y : E1.w;
+                if (rect.x<E2.z && rect.z>E2.x && Y>E2.y && Y<E2.w) Y = (Y-E2.y<E2.w-Y) ? E2.y : E2.w;
+                if (rect.x<E3.z && rect.z>E3.x && Y>E3.y && Y<E3.w) Y = (Y-E3.y<E3.w-Y) ? E3.y : E3.w;
+                if (abs(Y-p.y)<th) { shatterBorder = true; break; }
+                if (p.y<Y) { rect.w = Y; ++splits.y; sPos += inverter*sscale; } else { rect.y = Y; splits.y += 100.0; sPos += (1.0-inverter)*sscale; }
+            } else {
+                float X = mix(rect.x, rect.z, var2*withBias(rnd.x, b.x)+0.5);
+                if (rect.y<E1.w && rect.w>E1.y && X>E1.x && X<E1.z) X = (X-E1.x<E1.z-X) ? E1.x : E1.z;
+                if (rect.y<E2.w && rect.w>E2.y && X>E2.x && X<E2.z) X = (X-E2.x<E2.z-X) ? E2.x : E2.z;
+                if (rect.y<E3.w && rect.w>E3.y && X>E3.x && X<E3.z) X = (X-E3.x<E3.z-X) ? E3.x : E3.z;
+                if (abs(X-p.x)<th) { shatterBorder = true; break; }
+                if (p.x<X) { rect.z = X; ++splits.x; sPos += inverter*sscale; } else { rect.x = X; splits.x += 100.0; sPos += (1.0-inverter)*sscale; }
+            }
+            horSplit = !horSplit;
+            inverter = 1.0-inverter;
+            sscale *= 0.5;
+            b *= 0.5;
+        }
+        if (shatterBorder) break;
+        cellId = splits;
+        p = distort9(p, rect, splits, intensity, randomSeed);
+    }
+
+    // (2) per-cell source choice on a 1-D axis: balance targets src1/src2/src3 at -1/0/+1,
+    //     proximity blends toward the nearest window, random fills the middle. The perturbation
+    //     amplitude vanishes at balance = -1/0/+1 (via |sin(pi*balance)|) so those hit a pure source.
+    vec2 cc = 0.5*(rect.xy+rect.zw);                            // cell centre (per-cell)
+    float d1 = length(cc - windowTransform[2].xy);
+    float d2 = length(cc - windowTransform2[2].xy);
+    float d3 = length(cc - windowTransform3[2].xy);
+    float w1 = 1.0/(d1 + 1e-3);
+    float w2 = has2 ? 1.0/(d2 + 1e-3) : 0.0;
+    float w3 = has3 ? 1.0/(d3 + 1e-3) : 0.0;
+    float proxPos = (w1*(-1.0) + w2*0.0 + w3*1.0) / (w1 + w2 + w3);   // [-1,1], toward nearest window
+    float rnd2 = rand2relSeeded(cellId, randomSeed+77.7).x * 2.0;     // [-1,1] per cell
+    float s = balance + abs(sin(3.14159265*balance)) * mix(rnd2, proxPos, proximity);
+    int src = (s < -0.33333) ? 1 : (s > 0.33333) ? 3 : 2;
+    if (src==2 && !has2) src = 1;                              // fall back to source1 when absent
+    if (src==3 && !has3) src = 1;
+
+    float pixSel = (src==3) ? pixelation3 : (src==2) ? pixelation2 : pixelation1;
+    float srcSelRatio = (src==3) ? src3Ratio : (src==2) ? src2Ratio : srcRatio;
+
+    if (pixSel < 0.0) {
+        // (3a) FIT path: re-descend CLEANLY (no distortion) so the copies align, and draw the
+        //      clean cell's border (suppressing the shatter border inside this fitted cell).
+        vec4 crect = vec4(-outAR, -1.0, outAR, 1.0);
+        bool cborder = false;
+        {
+            bool horSplit = true;
+            vec2 splits = vec2(0.0);
+            float sPos = 0.0, sscale = 0.5, inverter = 0.0;
+            vec2 b = bias;
+            for (float i=0.0; i+sPos<scale; ++i) {
+                vec2 rnd = rand2relSeeded(splits, randomSeed+122.1);
+                vec2 size = crect.zw-crect.xy;
+                if (size.x<pixel || size.y<pixel) break;
+                if (rnd.x+0.5<regularity*2.0) horSplit = size.y>size.x;
+                if (horSplit) {
+                    float Y = mix(crect.y, crect.w, var2*withBias(rnd.y, b.y)+0.5);
+                    if (crect.x<E1.z && crect.z>E1.x && Y>E1.y && Y<E1.w) Y = (Y-E1.y<E1.w-Y) ? E1.y : E1.w;
+                    if (crect.x<E2.z && crect.z>E2.x && Y>E2.y && Y<E2.w) Y = (Y-E2.y<E2.w-Y) ? E2.y : E2.w;
+                    if (crect.x<E3.z && crect.z>E3.x && Y>E3.y && Y<E3.w) Y = (Y-E3.y<E3.w-Y) ? E3.y : E3.w;
+                    if (abs(Y-uv.y)<th) { cborder = true; break; }
+                    if (uv.y<Y) { crect.w = Y; ++splits.y; sPos += inverter*sscale; } else { crect.y = Y; splits.y += 100.0; sPos += (1.0-inverter)*sscale; }
+                } else {
+                    float X = mix(crect.x, crect.z, var2*withBias(rnd.x, b.x)+0.5);
+                    if (crect.y<E1.w && crect.w>E1.y && X>E1.x && X<E1.z) X = (X-E1.x<E1.z-X) ? E1.x : E1.z;
+                    if (crect.y<E2.w && crect.w>E2.y && X>E2.x && X<E2.z) X = (X-E2.x<E2.z-X) ? E2.x : E2.z;
+                    if (crect.y<E3.w && crect.w>E3.y && X>E3.x && X<E3.z) X = (X-E3.x<E3.z-X) ? E3.x : E3.z;
+                    if (abs(X-uv.x)<th) { cborder = true; break; }
+                    if (uv.x<X) { crect.z = X; ++splits.x; sPos += inverter*sscale; } else { crect.x = X; splits.x += 100.0; sPos += (1.0-inverter)*sscale; }
+                }
+                horSplit = !horSplit;
+                inverter = 1.0-inverter;
+                sscale *= 0.5;
+                b *= 0.5;
+            }
+        }
+        if (cborder) { vec4 col = __source__(uv); return vec4(mix(col.rgb, color.rgb, color.a), col.a); }
+        vec2 fc = fitCoord(uv, crect, srcSelRatio, pixSel);
+        if (src==3) return __source3__(fc);
+        if (src==2) return __source2__(fc);
+        return __source__(fc);
+    }
+
+    // (3b) SHATTER path (pixelation >= 0): Schema3c border + distort9-displaced, block-pixelated sample.
+    if (shatterBorder) { vec4 col = __source__(uv); return vec4(mix(col.rgb, color.rgb, color.a), col.a); }
+    vec2 sp = p;
+    if (pixSel > 1e-4) sp = floor(p/pixSel + 0.5)*pixSel;
+    if (src==3) return __source3__(sp);
+    if (src==2) return __source2__(sp);
+    return __source__(sp);
+}
+
+void main() {
+    fragColor = dichotomicSampling((inverse(u_viewTransform) * vec3(((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), 1.0)).xy, ((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), u_sourceDim, u_source2Dim, u_source3Dim, u_outDim, u_source2_specified, u_source3_specified, u_pixelation1, u_pixelation2, u_pixelation3, u_iterations, u_intensity, u_balance, u_proximity, u_variability, u_randomSeed, u_color, u_thickness, u_aspectRatio, u_modelTransform, u_windowTransform, u_windowTransform2, u_windowTransform3);
+}

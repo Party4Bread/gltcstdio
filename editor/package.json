@@ -1,0 +1,16 @@
+{
+  "name": "gltcstdio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "gltcstdio -- a node editor for building image filter chains",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "check": "tsc --noEmit",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,1037 @@
+#version 450
+layout(location = 0) in vec2 v_uv;
+layout(location = 0) out vec4 fragColor;
+
+layout(binding = 0, std140) uniform Params {
+    vec4 U[24];
+};
+layout(binding = 1) uniform sampler samp;
+layout(binding = 2) uniform texture2D t_source;
+layout(binding = 3) uniform texture2D t_sourceBkg;
+layout(binding = 4) uniform texture2D t_sourceElevation;
+
+#define u_source sampler2D(t_source, samp)
+#define u_sourceBkg sampler2D(t_sourceBkg, samp)
+#define u_sourceElevation sampler2D(t_sourceElevation, samp)
+#define u_worldAspect (U[0].x)
+#define u_viewTransform (mat3(U[1].xyz, U[2].xyz, U[3].xyz))
+#define u_sourceDim (U[4].xy)
+#define u_sourceBkg_specified (int(U[5].x))
+#define u_sourceElevation_specified (int(U[6].x))
+#define u_outDim (U[7].xy)
+#define u_intensity (U[8].x)
+#define u_model3DTransform (mat4(U[9], U[10], U[11], U[12]))
+#define u_lightSourceDistance (U[13].x)
+#define u_lightSourceAngleX (U[14].x)
+#define u_lightSourceAngleY (U[15].x)
+#define u_colorScheme (U[16].x)
+#define u_sourceColor (U[17])
+#define u_ambientColor (U[18])
+#define u_normalSmoothing (U[19].x)
+#define u_surfaceSmoothness (U[20].x)
+#define u_specular (U[21].x)
+#define u_shadows (U[22].x)
+#define u_gamma (U[23].x)
+
+#define __source__texelFetch__(c) texelFetch(u_source, (c), 0)
+#define __source__(p) texture(u_source, (vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+#define __sourceBkg__texelFetch__(c) texelFetch(u_sourceBkg, (c), 0)
+#define __sourceBkg__(p) texture(u_sourceBkg, (vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+#define __sourceElevation__texelFetch__(c) texelFetch(u_sourceElevation, (c), 0)
+#define __sourceElevation__(p) texture(u_sourceElevation, (vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+
+
+
+
+// gltcstdio GLSL support library.
+// Every function below was verified to compile against GL 3.3.
+// Prototypes precede bodies so intra-library call order is irrelevant.
+
+#define INF 1e20
+#define PI 3.141592653589793
+#define PI2 6.283185307179586
+#define PI4 12.566370614359172
+#define PI_2 1.5707963267948966
+#define PI_3 1.0471975511965976
+#define PI2_3 2.0943951023931953
+#define SQRT3 1.7320508075688772
+#define SQRT3_2 0.8660254037844386
+#define SQRT3_6 0.288675134594813
+#define SQRT2 1.4142135623730951
+#define SQRT2_2 0.7071067811865476
+#define THIRD 0.33333333333
+#define TWO_THIRDS 0.666666666667
+
+struct HexTile {
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct CairoTile {
+    vec2 center;
+    float borderDist;
+};
+struct TriangleTile {
+    bool up;
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct Tile {
+    float centerDist;
+    vec2 tileId;
+    float borderDist;
+    vec2 center;
+    vec2 borderNormal;
+    float secondCenterDist;
+    vec2 secondTileId;    
+    float thirdCenterDist;
+};
+
+// ---- prototypes ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---- bodies ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// allow vec4's
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+vec4 applyLighting(vec4 baseColor, float fromSource, float specular, vec4 ambientColor, vec4 sourceColor, float gamma) {
+    vec3 sumRGB = ambientColor.rgb + sourceColor.rgb;
+    float maxLum = max(max (sumRGB.r, sumRGB.g), sumRGB.b);
+    if (maxLum == 0.0) return vec4(0.0, 0.0, 0.0, 1.0);
+
+    vec3 color = (baseColor.rgb*ambientColor.rgb + baseColor.rgb*sourceColor.rgb*fromSource + sourceColor.rgb*specular) / maxLum;
+
+    float lum = (color.r+color.g+color.b)/3.0;
+    if (lum>0.0 && gamma!=0.0) {
+        float gammaCorrectedLum = pow(lum, pow(1.02, -gamma*100.));
+        color = color * gammaCorrectedLum/lum;
+    }
+
+    return clamp(vec4(color, baseColor.a), 0.0, 1.0);
+}
+
+float height(float intensity, vec4 color) {
+    return intensity*0.04* ((color.r + color.g + color.b)/3.0 - 0.5);
+}
+
+vec4 heightMapLightingGl(vec2 pos, vec2 outPos, float intensity, mat4 model3DTransform, vec2 sourceDim,
+            int sourceBkg_specified, int sourceElevation_specified,
+            float lightSourceDistance, float lightSourceAngleX, float lightSourceAngleY,
+            float colorScheme,
+            vec4 sourceColor, vec4 ambientColor,
+            float normalSmoothing, float surfaceSmoothness, float specular, float shadows, float gamma) {
+            vec4 backgroundColor = vec4(0.0, 0.0, 0.0, 1.0);
+
+            float D = 1.0;
+            vec3 cameraPos = vec3(0., 0., 0.);
+            mat4 m = inverse(model3DTransform);
+            cameraPos = (m * vec4(cameraPos, 1.)).xyz;
+            vec3 dir = vec3(pos.x*D, pos.y*D, -1.0);
+            dir = normalize(mat3(m) * dir);
+
+            float maxZ = abs(intensity)*0.02;
+            float ratio = (sourceDim.x/sourceDim.y);
+            float dk = 2.0/sourceDim.y;
+            vec3 step = dir * dk;
+            bool heightMap = sourceElevation_specified==1;
+
+            // Build light position the same way Pap's Matrix4f chain does:
+            // rotY(angleY) * rotX(angleX) * translate(0,0,distance) * (0,0,0,1)
+            float _caX = cos(lightSourceAngleX);
+            float _saX = sin(lightSourceAngleX);
+            float _caY = cos(lightSourceAngleY);
+            float _saY = sin(lightSourceAngleY);
+            vec3 lightPos = vec3(
+                 lightSourceDistance * _caX * _saY,
+                -lightSourceDistance * _saX,
+                 lightSourceDistance * _caX * _caY
+            );
+
+            float k1 = 0.0;
+            float k2 = 100000000.0;
+
+            if (dir.x!=0.0) {
+                float s = sign(dir.x);
+                float k3 = (-s*ratio-cameraPos.x)/dir.x;
+                float k4 = (s*ratio-cameraPos.x)/dir.x;
+                k1 = max(k1, k3);
+                k2 = min(k2, k4);
+            }
+
+            if (dir.y!=0.0) {
+                float s = sign(dir.y);
+                float k3 = (-s-cameraPos.y)/dir.y;
+                float k4 = (s-cameraPos.y)/dir.y;
+                k1 = max(k1, k3);
+                k2 = min(k2, k4);
+            }
+
+            float maxZ2 = maxZ+0.0001; // prevent flickering on edge case
+            if (dir.z!=0.0) {
+                float s = sign(dir.z);
+                float k3 = (-s*maxZ2-cameraPos.z)/dir.z;
+                float k4 = (s*maxZ2-cameraPos.z)/dir.z;
+                k1 = max(k1, k3);
+                k2 = min(k2, k4);
+            }
+
+            if (k1>k2) return sourceBkg_specified==1 ? __sourceBkg__(pos) : vec4(0.0, 0.0, 0.0, 1.0);
+
+            float k = k1;
+            vec3 p = cameraPos + k*dir;
+
+            vec4 color = backgroundColor;
+            float h = 0.0;
+            float dz = 0.0;
+            float prevDz;
+            vec4 prevColor = vec4(0.0, 0.0, 0.0, 1.0);
+            float prevH;
+            bool stop;
+
+            k2 += dk; // eliminates circular banding issue
+            if (heightMap) {
+                do {
+                    prevDz = dz;
+                    prevH = h;
+
+                    h = height(intensity, __sourceElevation__(p.xy));
+                    dz = p.z-h;
+
+                    p += step;
+                    k += dk;
+                    stop = dz==0.0 || (k!=k1 && sign(dz)==-sign(prevDz));
+                } while (k<=k2 && !stop);
+                vec2 pp = (p-step).xy;
+                color = __source__(pp);
+                prevColor = __source__(pp-step.xy);
+            }
+            else {
+                do {
+                    prevColor = color;
+                    prevDz = dz;
+                    prevH = h;
+
+                    color = __source__(p.xy);
+                    h = height(intensity, color);
+                    dz = p.z-h;
+
+                    p += step;
+                    k += dk;
+                    stop = dz==0.0 || (k!=k1 && sign(dz)==-sign(prevDz));
+                } while (k<=k2 && !stop);
+            }
+
+            if (!stop) return sourceBkg_specified==1 ? __sourceBkg__(pos) : vec4(0.0, 0.0, 0.0, 1.0);
+
+            float kk = (dz==0.0 || k1+dk>k2) ? 1.0 : abs(prevDz)/(abs(dz)+abs(prevDz));
+            float hh = mix(prevH, h, kk);
+            float hRatio = maxZ==0.0 ? 1.0 : hh/maxZ;
+            if (colorScheme <=50.0) {
+                float darken = 1.0 + colorScheme*0.02*hRatio;
+                color = mix(prevColor, color, kk) * vec4(darken, darken, darken, 1.0);
+            }
+            else {
+                float darken = 1.0 + hRatio;
+                float kkk = (colorScheme-50.0)*0.02;
+                vec4 col = mix(prevColor, color, kk) * vec4(darken, darken, darken, 1.0);
+                color = mix(col, vec4(darken*0.5, darken*0.5, darken*0.5, 1.0), kkk);
+            }
+
+            vec3 lightVec = lightPos - p;
+            vec3 lightDir = normalize(lightVec);
+
+            float lighting = 1.0;
+            float spec = 0.0;
+            float shadowing = sourceColor.r + sourceColor.g + sourceColor.b;
+            if (shadowing!=0.0) {
+                vec3 intersection = p;
+                float deltaX = 0.002;
+                float deltaY = 0.002;
+                float dzdx = 0.0;
+                float dzdy = 0.0;
+
+                float N = 1.0 + ceil(normalSmoothing/20.0);
+                float bx = 0.0005 + normalSmoothing*0.0001;
+                float sx = N>=2.0 ? bx/(N-1.0) : 0.0;
+                if (!heightMap)
+                    for(int i = 0; i<int(N); ++i) {
+                        float deltaX = bx+float(i)*sx;
+                        dzdx += (height(intensity, __source__(vec2(intersection.x+deltaX, intersection.y)))
+                            - height(intensity, __source__(vec2(intersection.x-deltaX, intersection.y))));
+                    }
+                else
+                    for(int i = 0; i<int(N); ++i) {
+                        float deltaX = bx+float(i)*sx;
+                        dzdx += (height(intensity, __sourceElevation__(vec2(intersection.x+deltaX, intersection.y)))
+                            - height(intensity, __sourceElevation__(vec2(intersection.x-deltaX, intersection.y))));
+                    }
+
+                dzdx /= N;
+                deltaX = bx+(N-1.0)/2.0*sx;
+
+                float by = 0.0005 + normalSmoothing*0.0001;
+                float sy = N>=2.0 ? by/(N-1.0) : 0.0;
+
+                if (!heightMap)
+                    for(int i = 0; i<int(N); ++i) {
+                        float deltaY = by+float(i)*sy;
+                        dzdy = (height(intensity, __source__(vec2(intersection.x, intersection.y+deltaY)))
+                           - height(intensity, __source__(vec2(intersection.x, intersection.y-deltaY))));
+                    }
+                else
+                    for(int i = 0; i<int(N); ++i) {
+                        float deltaY = by+float(i)*sy;
+                        dzdy = (height(intensity, __sourceElevation__(vec2(intersection.x, intersection.y+deltaY)))
+                           - height(intensity, __sourceElevation__(vec2(intersection.x, intersection.y-deltaY))));
+                    }
+
+                dzdy /= N;
+                deltaY = by+(N-1.0)/2.0*sy;
+
+                vec3 unormal = vec3(-2.0*deltaY*dzdx, -2.0*deltaX*dzdy, deltaX*deltaY);
+                vec3 normal = (unormal.x==0.0 && unormal.y==0.0 && unormal.z==0.0) ? vec3(0.0, 0.0, 1.0) : normalize(unormal);
+
+                lighting = (dot(lightDir, normal)+1.0)/2.0;
+
+                if (surfaceSmoothness<100.0) {
+                    if (lighting<0.5) lighting = pow(lighting*2.0, 100.0/surfaceSmoothness) / 2.0;
+                    else lighting = pow((lighting-0.5)*2.0, 0.01*surfaceSmoothness) / 2.0 + 0.5;
+                }
+
+                if (specular!=0.0) {
+                    vec3 reflectLightDir = reflect(lightDir, normal);
+                    spec = (specular<25.0?specular*0.04:1.0) * pow(clamp(dot(dir, reflectLightDir), 0.0, 1.0), 10.0-specular*0.1);
+                }
+            }
+
+            float shad = shadows;
+            if (shadowing!=0.0 && shad > 0.0 && intensity!=0.0) {
+                p = p-2.0*step; // avoid intersecting immediately
+                vec3 lightStep = lightDir * dk;
+
+                k1 = 0.0;
+                float k2 = length(lightVec);
+
+                if (lightDir.x!=0.0) {
+                    float s = sign(lightDir.x);
+                    float k3 = (-s*ratio-p.x)/lightDir.x;
+                    float k4 = (s*ratio-p.x)/lightDir.x;
+                    if (k4>0.0) k2 = min(k2, k4);
+                    if (k3>0.0) k2 = min(k2, k3);
+                }
+
+                if (lightDir.y!=0.0) {
+                    float s = sign(lightDir.y);
+                    float k3 = (-s-p.y)/lightDir.y;
+                    float k4 = (s-p.y)/lightDir.y;
+                    if (k4>0.0) k2 = min(k2, k4);
+                    if (k3>0.0) k2 = min(k2, k3);
+                }
+
+                float maxZ2 = maxZ+0.0001; // prevent flickering on edge case
+                if (lightDir.z!=0.0) {
+                    float s = sign(lightDir.z);
+                    float k3 = (-s*maxZ2-p.z)/lightDir.z;
+                    float k4 = (s*maxZ2-p.z)/lightDir.z;
+                    if (k4>0.0) k2 = min(k2, k4);
+                    if (k3>0.0) k2 = min(k2, k3);
+                }
+
+                k = 0.0;
+
+                h = 0.0;
+                dz = 0.0;
+                stop = false;
+
+                if (heightMap) {
+                    do {
+                        prevDz = dz;
+                        prevH = h;
+
+                        h = height(intensity, __sourceElevation__(p.xy));
+                        dz = p.z-h;
+
+                        p += lightStep;
+                        k += dk;
+                        stop = dz==0.0 || (k!=k1 && sign(dz)==-sign(prevDz));
+                    } while (k<=k2 && !stop);
+                }
+                else {
+                    do {
+                        prevDz = dz;
+                        prevH = h;
+
+                        h = height(intensity, __source__(p.xy));
+                        dz = p.z-h;
+
+                        p += lightStep;
+                        k += dk;
+                        stop = dz==0.0 || (k!=k1 && sign(dz)==-sign(prevDz));
+                    } while (k<=k2 && !stop);
+                }
+
+                if (stop) {
+                    lighting = min(1.0-shadows, lighting);
+                    spec = 0.0;
+                }
+            }
+
+            color = applyLighting(color, lighting, spec, ambientColor, sourceColor, gamma);
+
+            return clamp(color, 0.0, 1.0);
+        }
+
+void main() {
+    fragColor = heightMapLightingGl((inverse(u_viewTransform) * vec3(((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), 1.0)).xy, ((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), u_intensity, u_model3DTransform, u_sourceDim, u_sourceBkg_specified, u_sourceElevation_specified, u_lightSourceDistance, u_lightSourceAngleX, u_lightSourceAngleY, u_colorScheme, u_sourceColor, u_ambientColor, u_normalSmoothing, u_surfaceSmoothness, u_specular, u_shadows, u_gamma);
+}

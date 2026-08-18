@@ -1,0 +1,917 @@
+#version 450
+layout(location = 0) in vec2 v_uv;
+layout(location = 0) out vec4 fragColor;
+
+layout(binding = 0, std140) uniform Params {
+    vec4 U[22];
+};
+layout(binding = 1) uniform sampler samp;
+layout(binding = 2) uniform texture2D t_source;
+
+#define u_source sampler2D(t_source, samp)
+#define u_worldAspect (U[0].x)
+#define u_viewTransform (mat3(U[1].xyz, U[2].xyz, U[3].xyz))
+#define u_source_specified (int(U[4].x))
+#define u_outDim (U[5].xy)
+#define u_mode (int(U[6].x))
+#define u_julianess (U[7].x)
+#define u_transformOrbit (mat3(U[8].xyz, U[9].xyz, U[10].xyz))
+#define u_color (U[11])
+#define u_offset (U[12].x)
+#define u_colorPower (U[13].x)
+#define u_offsetTransform (mat3(U[14].xyz, U[15].xyz, U[16].xyz))
+#define u_modelTransform (mat3(U[17].xyz, U[18].xyz, U[19].xyz))
+#define u_iterations (int(U[20].x))
+#define u_seed (U[21].x)
+
+#define __source__texelFetch__(c) texelFetch(u_source, (c), 0)
+#define __source__(p) texture(u_source, (vec2((p).x / u_worldAspect, (p).y) / 2.0 + 0.5))
+
+
+
+
+// gltcstdio GLSL support library.
+// Every function below was verified to compile against GL 3.3.
+// Prototypes precede bodies so intra-library call order is irrelevant.
+
+#define INF 1e20
+#define PI 3.141592653589793
+#define PI2 6.283185307179586
+#define PI4 12.566370614359172
+#define PI_2 1.5707963267948966
+#define PI_3 1.0471975511965976
+#define PI2_3 2.0943951023931953
+#define SQRT3 1.7320508075688772
+#define SQRT3_2 0.8660254037844386
+#define SQRT3_6 0.288675134594813
+#define SQRT2 1.4142135623730951
+#define SQRT2_2 0.7071067811865476
+#define THIRD 0.33333333333
+#define TWO_THIRDS 0.666666666667
+
+struct HexTile {
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct CairoTile {
+    vec2 center;
+    float borderDist;
+};
+struct TriangleTile {
+    bool up;
+    vec2 center;
+    vec2 pos;
+    float angle;    
+    float centerDist;
+    float borderDist;
+};
+struct Tile {
+    float centerDist;
+    vec2 tileId;
+    float borderDist;
+    vec2 center;
+    vec2 borderNormal;
+    float secondCenterDist;
+    vec2 secondTileId;    
+    float thirdCenterDist;
+};
+
+// ---- prototypes ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---- bodies ----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// allow vec4's
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+vec2 complexExp(vec2 u) {
+    return exp(u.x) * vec2(cos(u.y), sin(u.y));
+}
+
+vec2 complexMul(vec2 u, vec2 v) {
+    return vec2(u.x*v.x-u.y*v.y, dot(u, v.yx));  
+}
+
+vec2 evilEye(vec2 z, vec2 p, float a, float b, float c, float d, float e, float f, float g) {
+	return complexMul(p, complexExp(z.yx)-0.5*z);
+}
+
+vec3 getColor(float d, float offset, float channel) {
+    float x = mod(d+offset + channel*PI2 + PI, PI2*3.0);
+    if (x<PI2) return vec3(-0.5*cos(x)+0.5, 0.0, 0.0);
+    else if (x<PI4) return vec3(0.0, -0.5*cos(x-PI2)+0.5, 0.0);
+    else return vec3(0.0, 0.0, -0.5*cos(x-PI4)+0.5);
+}
+
+vec4 getCombinedColor(vec3 orbDist, float colorPower, float offset, vec4 color) {
+        if (orbDist.y<0.0 && orbDist.z<0.0) {
+            float dd = pow(orbDist.x, colorPower)+offset;
+            float k = 0.5+0.5*cos(dd);
+            vec3 rndCol = vec3(sin(dd*3.333), sin(dd*4.3434), sin(dd*3.88434));
+            vec3 baseCol = color.rgb;// * cos(dd*6.343771);
+            return vec4(mix(rndCol, baseCol, k), color.a);
+        }
+        else if (orbDist.z<0.0) {
+            float dd = pow(orbDist.x, colorPower)+offset;
+            float dd2 = pow(orbDist.y, colorPower)+offset;
+            float k = 0.5+0.5*cos(dd2);
+            vec3 col1 = color.rgb;
+            vec3 col2 = vec3(sin(dd*3.333), sin(dd*4.3434), sin(dd*3.88434)); //orbDist.y>=0.0 ? getColor(pow(orbDist.y, colorPower)*orbitSize, offset, 1.0) : vec3(0.);
+            return vec4(mix(col2, col1, k), color.a);
+        }
+        else {
+            vec3 col1 = orbDist.x>=0.0 ? getColor(pow(orbDist.x, colorPower), offset, 0.0) : vec3(0.);
+            vec3 col2 = orbDist.y>=0.0 ? getColor(pow(orbDist.y, colorPower), offset, 1.0) : vec3(0.);
+            vec3 col3 = orbDist.z>=0.0 ? getColor(pow(orbDist.z, colorPower), offset, 2.0) : vec3(0.);
+            float similarity = (dot(col1, col2) + dot(col2, col3) + dot(col3, col1))/3.0;
+//                vec3 rgb = mix(color.rgb + col1 + col2 + col3, col1 + col2 + col3, similarity);
+//                vec3 rgb = mix(mix(color.rgb, col1 + col2 + col3, 0.6), col1 + col2 + col3, similarity);
+            vec3 rgb = mix((col1 + col2 + col3)*color.rgb*2.0, col1 + col2 + col3, similarity);
+            return vec4(rgb, color.a);
+        }    
+    }
+
+mat3 rotation3(float angle) {
+    float ca = cos(angle);
+    float sa = sin(angle);
+    return mat3(ca, sa, 0., -sa, ca, 0., 0., 0., 1.);
+}
+
+mat3 scaling3(float s) {
+    return mat3(s, 0., 0., 0., s, 0., 0., 0., 1.);
+}
+
+mat3 translation3(vec2 t) {
+    return mat3(1., 0., 0., 0., 1., 0., t.x, t.y, 1.);
+}
+
+vec3 getOrbitModes(int mode, mat3 t0, inout mat3 t1, inout mat3 t2, inout mat3 t3) {
+    vec3 modes = vec3(0., -1., -1.);
+    t1 = inverse(t0);
+    float baseMode = float(mode/10);
+    int subMode = mode%10;
+    if (baseMode<=5.0) {
+        modes.x = baseMode; 
+        if (subMode==1) { modes.y = baseMode; t2 = inverse(rotation3(PI)*t0); }
+        else if (subMode==2) { modes.y = baseMode; t2 = inverse(translation3(vec2(0.5, 0.0))*t0); }
+        else if (subMode==3) { modes.y = baseMode; t2 = inverse(translation3(vec2(1.0, 0.0))*t0); }
+        else {
+            modes.y = baseMode; modes.z = baseMode;
+            if (subMode==4) { t2 = inverse(rotation3(PI/3.0)*t0); t3 = inverse(rotation3(PI2/3.0)*t0); }
+            else if (subMode==5) { t2 = inverse(scaling3(1.5)*t0); t3 = inverse(scaling3(2.25)*t0); }
+            else if (subMode==6) { t2 = inverse(translation3(vec2(0.0, 2.0))*t0); t3 = inverse(translation3(vec2(0.0, -2.0))*t0); }
+            else if (subMode==7) { t2 = inverse(translation3(0.25*vec2(-SQRT3_2, -1.0))*t0); t3 = inverse(translation3(0.25*vec2(-SQRT3_2, 1.0))*t0); }
+            else if (subMode==8) { t2 = inverse(translation3(0.5*vec2(-SQRT3_2, -1.0))*t0); t3 = inverse(translation3(0.5*vec2(-SQRT3_2, 1.0))*t0); }
+            else if (subMode==9) { t2 = inverse(scaling3(1.5)*translation3(1.0*vec2(-SQRT3_2, -1.0))*t0); t3 = inverse(scaling3(2.25)*translation3(0.5*vec2(-SQRT3_2, 1.0))*t0); }
+        }
+    }
+    else if (mode==60) { modes.x = 0.0; modes.y = 2.0; t2 = inverse(rotation3(PI)*t0); }
+    else if (mode==61) { modes.x = 0.0; modes.y = 1.0; t2 = inverse(rotation3(PI)*t0); }
+    else if (mode==62) { modes.x = 0.0; modes.y = 5.0; t2 = inverse(translation3(vec2(2.0, 0.0))*t0); }
+    else if (mode==63) { modes.x = 0.0; modes.y = 1.0; t2 = inverse(translation3(vec2(2.0, 0.0))*t0); }
+           
+    return modes;
+}
+
+vec2 tf(mat3 m, vec2 u) {
+    return (m * vec3(u, 1.)).xy;
+}
+
+float sdSegment(vec2 u, vec2 a, vec2 b) {
+    vec2 ua = u-a;
+    vec2 ba = b-a;
+    float h = clamp(dot(ua, ba)/dot(ba, ba), 0., 1.);
+    return length(ua - ba*h);
+}
+
+float orbit(vec2 z, mat3 t, int type) {
+    //return 1.0/(abs(length(z) - 1.0));
+    vec2 tz = tf(t, z);
+    
+    if (type==0) return length(tz);
+    else if (type==1) return abs(length(tz) - 5.);
+    else if (type==2) return abs(tz.y);
+    else if (type==3) return abs(max(abs(tz.x), abs(tz.y)) - 5.); 
+    else if (type==4) return sdSegment(tz, vec2(-8.0, 0.0), vec2(8.0, 0.0));
+    else if (type==5) return length(fract(tz)-0.5)*5.;
+    else return -1.0;
+}
+
+void threeOrbits(inout vec3 dist, vec2 z, mat3 t1, mat3 t2, mat3 t3, vec3 modes) {
+        dist.x = min(dist.x, orbit(z, t1, int(modes.x)));
+        dist.y = min(dist.y, orbit(z, t2, int(modes.y)));
+        dist.z = min(dist.z, orbit(z, t3, int(modes.z))); 
+}
+
+        vec4 evilEyeOrbits(vec2 pos, vec2 outPos, int source_specified, int mode, float julianess, mat3 transformOrbit, vec4 color, float offset, float colorPower,  mat3 offsetTransform, mat3 modelTransform, int iterations, float seed) {
+            mat3 invModelTransform = inverse(modelTransform);
+           
+            float cj = cos(julianess * PI*0.5);
+            float sj = sin(julianess * PI*0.5);
+            vec2 uv = tf(invModelTransform, pos);
+            vec2 t = cj*uv + sj*offsetTransform[2].xy;
+            vec2 z0 = sj*uv + cj*offsetTransform[2].xy;
+            
+            vec2 z = z0;
+            
+            vec3 orbDist = vec3(INF);
+mat3 tR = inverse(transformOrbit), tG, tB;
+vec3 modes = getOrbitModes(mode, transformOrbit, tR, tG, tB);
+            float dist = INF;
+            
+            float pa = 1.0 + 6.0*sin(seed*3.0);
+            float pb = 2.0 + 1.5*sin(seed*5.343);
+            float pc = 1.0 + 4.0*sin(seed*7.431);
+            float pd = 2.0 + 1.5*sin(seed*9.111);
+            float pe = -PI + 0.5*sin(seed*11.003);
+            float pf = PI + 0.5*sin(seed*13.884);
+            float pg = 0.25 + 0.15*sin(seed*15.343);
+            vec2 s1 = vec2(cos(seed), sin(seed));
+            vec2 c1 = vec2(20.0, 0.0);
+            
+            float g = exp(-1.0);
+            for(int i=0; i<iterations; ++i) {//length(uv)<100.0) {
+                uv = evilEye(uv, t, pa, pb, pc, pd, pe ,pf, pg);  
+                
+                threeOrbits(orbDist, uv, tR, tG, tB, modes);
+                dist = min(dist, 5.0*abs(dot(uv, s1)));
+                dist = min(dist, length(uv-c1));
+            }
+            //float g = i==N ? 1.0 : i/N;
+            g = (1.0-dist*0.05)*1.0;
+            vec4 outCol;
+if (source_specified==1) {
+    float dd = offset + min(min(orbDist.x>=0.0 ? pow(orbDist.x, colorPower) : INF, orbDist.y>=0.0 ? pow(orbDist.y, colorPower) : INF), pow(orbDist.z, colorPower)>=0.0 ? orbDist.z : INF);
+    outCol = __source__(vec2(sin(dd*3.333), cos(dd*4.3434)));
+}
+else {
+    outCol = getCombinedColor(orbDist, colorPower, offset, color);
+}
+            return vec4(g, g, g, 1.0) * outCol;
+
+//            //return vec4(g * vec3(distR, distG, distB), 1.0);
+        }
+
+void main() {
+    fragColor = evilEyeOrbits((inverse(u_viewTransform) * vec3(((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), 1.0)).xy, ((v_uv - 0.5) * 2.0 * vec2(u_worldAspect, 1.0)), u_source_specified, u_mode, u_julianess, u_transformOrbit, u_color, u_offset, u_colorPower, u_offsetTransform, u_modelTransform, u_iterations, u_seed);
+}

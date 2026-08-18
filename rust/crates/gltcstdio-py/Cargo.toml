@@ -1,0 +1,15 @@
+[package]
+name = "gltcstdio-py"
+version.workspace = true
+edition.workspace = true
+description = "Python bindings for gltcstdio"
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gltcstdio = { path = "../gltcstdio" }
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py39"] }
+serde_json = { workspace = true }

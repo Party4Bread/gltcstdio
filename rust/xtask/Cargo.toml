@@ -1,0 +1,9 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+naga = { version = "26", features = ["glsl-in", "wgsl-out"] }
+serde_json = { workspace = true }

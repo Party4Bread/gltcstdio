@@ -1,0 +1,30 @@
+[package]
+name = "gltcstdio"
+version.workspace = true
+edition.workspace = true
+description = "769 image filters on wgpu/WebGPU and the CPU, chainable into graphs"
+publish = false
+readme = "../../README.md"
+categories = ["graphics", "multimedia::images"]
+keywords = ["image", "filter", "shader", "wgpu", "webgpu"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytemuck = { workspace = true }
+log = { workspace = true }
+wgpu = { workspace = true, optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pollster = { version = "0.4", optional = true }
+
+[features]
+default = ["gpu", "blocking"]
+# The wgpu/WebGPU renderer.  Without it only the CPU filters and the graphs
+# built purely from them are available.
+gpu = ["dep:wgpu"]
+# Block on GPU work instead of awaiting it.  Never available on the web.
+blocking = ["dep:pollster"]
+
+[dev-dependencies]
+pollster = "0.4"
