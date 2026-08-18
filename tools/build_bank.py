@@ -814,6 +814,28 @@ def main() -> None:
     # `specular` and `model3DTransform` -- parameters the reimplementation
     # does not have, so they did nothing at all.  On top of that the shader is
     # 8 ms against 281 ms at 900x900.
+    # `WhiteInfinite.java` declares its transform by inheritance, which is an
+    # identity, and then invokes itself with a real one:
+    #
+    #   (white-infinite :source source1 :model3DTransform
+    #      (mat4 (vec4 1 0 0 0) (vec4 0 1 0 0) (vec4 0 0 1 0) (vec4 0 0 -1 1)))
+    #
+    # The extractor kept the declaration and lost the call, so the look sat
+    # its torus at the origin, inside the camera, and drew nothing.  It went
+    # unnoticed while `mobius-torus` was a reimplementation that ignored the
+    # transform.  `mat4` takes columns and the bank stores rows, which is
+    # what puts the -1 at [2][3] -- where `mobius-torus`'s own presets keep
+    # theirs.
+    if "white-infinite" in filters:
+        for p in filters["white-infinite"]["params"]:
+            if p["name"] == "model3DTransform":
+                p["default"] = [
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, -1.0],
+                    [0.0, 0.0, 0.0, 1.0],
+                ]
+
     prefer_gl.add("mobius-torus")
     if prefer_gl:
         for fid in prefer_gl:

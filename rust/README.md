@@ -224,6 +224,19 @@ looks that chain them, `dreamy`, `hyper-warp`, `impact` and `white-infinite`
 -- and every one of them moved towards what the app does rather than away.
 The other 760 are byte-identical.
 
+Two of those nine had further to travel. Both new shaders sample inside a
+conditional, so they join the 168 the web build writes with an explicit mip
+level; a browser rejects the module outright otherwise, which is what
+`compile_check` is for and how the list was regenerated. And `white-infinite`
+drew nothing at all once it was reaching the real shader: `WhiteInfinite.java`
+declares its transform by inheritance, an identity, then invokes itself with
+`(mat4 (vec4 1 0 0 0) (vec4 0 1 0 0) (vec4 0 0 1 0) (vec4 0 0 -1 1))`. The
+extractor had kept the declaration and lost the call, which put the torus at
+the origin inside the camera; nobody noticed while the reimplementation
+ignored the transform entirely. `mat4` takes columns where the bank stores
+rows, so the -1 belongs at [2][3] -- which is where `mobius-torus`'s own
+presets keep theirs.
+
 ### Where a shader's time goes
 
 Not in the shader, for almost all of them. A typical filter renders 900x900 in
@@ -326,7 +339,7 @@ parameter resolution rather than a second copy of it. Without that, 45 of the
 ### What WebGPU refuses that native wgpu allows
 
 WGSL requires a texture sample that computes its own mip level to sit in
-uniform control flow, and 166 of the app's shaders sample inside a conditional
+uniform control flow, and 168 of the app's shaders sample inside a conditional
 or a loop. Native wgpu accepts them; a browser rejects the whole module, and
 the filter draws nothing.
 
@@ -338,7 +351,7 @@ branch, which computes the same value.
 
 The list is measured, not guessed: `Filters.compile_check()` builds every
 pipeline and reports what the browser refused, and its output is
-`tools/webgpu_uniformity.json`. 462 of 463 shaders compile in Chrome today.
+`tools/webgpu_uniformity.json`. 464 of 465 shaders compile in Chrome today.
 The one that does not, `flower`, takes a gradient inside a conditional nested
 too deep to lift. It says so in a sentence rather than drawing a blank frame,
 keeping the driver's own message on hover, which is what any refused shader
