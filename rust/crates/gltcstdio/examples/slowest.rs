@@ -36,8 +36,11 @@ fn main() {
     for id in bank().ids().collect::<Vec<_>>() {
         let spec = bank().get(id).unwrap();
         // Warm the upload cache first: the editor pays for the pyramid once,
-        // not on the render being measured.
+        // not on the render being measured.  The stage cache has to go the
+        // other way -- it holds the answer to exactly this call, so leaving
+        // it would time a memcpy rather than the filter.
         let _ = r.apply(id, &src, &Params::new());
+        r.forget_stages();
         let started = Instant::now();
         if r.apply(id, &src, &Params::new()).is_err() {
             continue;

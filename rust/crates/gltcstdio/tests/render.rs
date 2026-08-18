@@ -276,10 +276,16 @@ fn the_upload_cache_changes_nothing() {
     let b = test_image(48);
     let mut failed = Vec::new();
     for id in bank().ids() {
+        // The stage cache would answer the third render from the second's
+        // memory and prove nothing about the uploads, which is what this is
+        // about.
+        r.forget_stages();
         let Ok(first) = r.apply(id, &a, &Params::new()) else {
             continue;
         };
+        r.forget_stages();
         let _ = r.apply(id, &b, &Params::new());
+        r.forget_stages();
         match r.apply(id, &a, &Params::new()) {
             Ok(again) if again.data != first.data => failed.push(id),
             _ => {}
@@ -362,4 +368,115 @@ fn the_blur_shaders_sample_where_they_are_looking() {
     let h = roughness(&r.apply("gaussian-blurh", &src, &params![("radius", 0.08)]).unwrap());
     assert!(v < rough * 0.25, "gaussian-blurv barely blurred: {rough:.1} -> {v:.1}");
     assert!(v < h * 0.5, "the two passes blur alike, so neither is on its axis: {v:.1} vs {h:.1}");
+}
+
+/// A chain of one filter applied twice, so the inner one is an intermediate
+/// and goes through the cache. Only what feeds another node is cached, so a
+/// test calling `apply` directly would exercise nothing.
+fn twice(id: &str, params: serde_json::Value) -> gltcstdio::FilterNode {
+    serde_json::from_value(serde_json::json!({
+        "filter": id,
+        "params": params,
+        "inputs": {"source": {
+            "filter": id,
+            "params": params,
+            "inputs": {"source": {"input": "source"}},
+        }},
+    }))
+    .expect("graph")
+}
+
+/// A cached stage must be the stage, for every filter in the bank.
+///
+/// The cache answers from a key rather than from the pixels, so a key that
+/// missed something a render depends on would return a picture from a
+/// different setting, and would do it silently. Each filter is rendered cold
+/// through a cleared cache and then again through a warm one holding other
+/// work, and the two must agree byte for byte.
+#[test]
+fn the_stage_cache_changes_nothing() {
+    let Some(mut r) = renderer() else {
+        eprintln!("no GPU device; skipping");
+        return;
+    };
+    let a = test_image(64);
+    let b = test_image(48);
+    let mut failed = Vec::new();
+    for id in bank().ids() {
+        let graph = twice(id, serde_json::json!({}));
+        r.forget_stages();
+        let Ok(cold_a) = r.apply_graph(&graph, &a, &Params::new()) else {
+            continue;
+        };
+        r.forget_stages();
+        let Ok(cold_b) = r.apply_graph(&graph, &b, &Params::new()) else {
+            continue;
+        };
+        // Both images through one warm cache, each still its own picture:
+        // the second must not be answered out of the first's memory, and the
+        // third must not be answered out of the second's.
+        r.forget_stages();
+        let warm_a = r.apply_graph(&graph, &a, &Params::new());
+        let warm_b = r.apply_graph(&graph, &b, &Params::new());
+        let again_a = r.apply_graph(&graph, &a, &Params::new());
+        let ok = matches!(&warm_a, Ok(i) if i.data == cold_a.data)
+            && matches!(&warm_b, Ok(i) if i.data == cold_b.data)
+            && matches!(&again_a, Ok(i) if i.data == cold_a.data);
+        if !ok {
+            failed.push(id);
+        }
+    }
+    assert!(failed.is_empty(), "{} differ: {failed:?}", failed.len());
+}
+
+/// The cache must tell renders apart, not merely return something.
+///
+/// A key that ignored a parameter would make every setting of a filter look
+/// like the first one rendered, which is worse than no cache at all.
+#[test]
+fn the_stage_cache_tells_settings_apart() {
+    let Some(mut r) = renderer() else {
+        eprintln!("no GPU device; skipping");
+        return;
+    };
+    let img = test_image(64);
+    let mut checked = 0;
+    for id in bank().ids() {
+        let spec = bank().get(id).unwrap();
+        // A scalar with room to move, so the two renders are asking for
+        // visibly different things.
+        let Some(p) = spec.params.iter().find(|p| {
+            p.ty == "float" && p.min.is_some() && p.max.is_some() && p.min != p.max
+        }) else {
+            continue;
+        };
+        let (lo, hi) = (p.min.unwrap(), p.max.unwrap());
+        let one = twice(id, serde_json::json!({ p.name.clone(): lo }));
+        let two = twice(id, serde_json::json!({ p.name.clone(): hi }));
+
+        // References with nothing remembered, so they cannot inherit a
+        // mistake. Comparing two warm renders against each other would not
+        // catch a key that conflates them: both come back equally wrong.
+        r.forget_stages();
+        let Ok(want_lo) = r.apply_graph(&one, &img, &Params::new()) else { continue };
+        r.forget_stages();
+        let Ok(want_hi) = r.apply_graph(&two, &img, &Params::new()) else { continue };
+        if want_lo.data == want_hi.data {
+            continue; // the parameter does nothing here; nothing to tell apart
+        }
+
+        // Now warm, alternating: each setting must still get its own answer
+        // out of a cache holding the other.
+        r.forget_stages();
+        for (want, graph, at) in [(&want_lo, &one, lo), (&want_hi, &two, hi), (&want_lo, &one, lo)] {
+            assert_eq!(
+                r.apply_graph(graph, &img, &Params::new()).unwrap().data,
+                want.data,
+                "{id}: cached {} at {at} came back as another setting",
+                p.name
+            );
+        }
+        checked += 1;
+    }
+    assert!(checked > 100, "only {checked} filters had a scalar to vary");
 }

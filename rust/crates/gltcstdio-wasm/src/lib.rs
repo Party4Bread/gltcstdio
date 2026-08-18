@@ -113,6 +113,29 @@ impl Filters {
         self.inputs.clear();
     }
 
+    /// Drop what the renderer remembers having rendered and uploaded.
+    ///
+    /// Both caches bound themselves, so this is for a page that wants the
+    /// memory back sooner -- or one measuring what they are worth, which
+    /// cannot be timed through a cache holding the answer already.
+    pub fn forget_cached(&mut self) {
+        self.inner.forget_stages();
+        self.inner.forget_uploads();
+    }
+
+    /// Drop the rendered stages but keep the uploaded images, which is what
+    /// separates what each cache is worth.
+    pub fn forget_stages(&mut self) {
+        self.inner.forget_stages();
+    }
+
+    /// Stage-cache hits and misses since the module was opened, as `[hits,
+    /// misses]`.
+    pub fn cache_stats(&self) -> Vec<f64> {
+        let (hits, misses) = self.inner.stage_stats();
+        vec![hits as f64, misses as f64]
+    }
+
     /// Compile every shader and report the ones this browser refuses, as
     /// JSON `[{id, error}]`.  Used to calibrate the export, since WebGPU is
     /// stricter than native wgpu about sampling in non-uniform control flow.

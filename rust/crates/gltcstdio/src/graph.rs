@@ -16,7 +16,11 @@ use crate::value::{from_json, to_json, Params, Value};
 use crate::{Error, Renderer};
 
 /// How deep a graph may nest before it is assumed to be cyclic.
-const MAX_DEPTH: usize = 16;
+///
+/// A chain nests one level per filter, so this is also the longest chain the
+/// editor can build; it is a guard against a cycle rather than a budget, and
+/// nothing in the bank comes near it.
+const MAX_DEPTH: usize = 64;
 
 /// The names a node uses for the image flowing through the chain.
 const PRIMARY_INPUTS: [&str; 2] = ["source", "source1"];
@@ -37,7 +41,10 @@ impl Renderer {
         depth: usize,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Image, Error>> + 'a>> {
         let bindings = graph_bindings(node);
-        Box::pin(self.render_graph_at(node, image, outer, sources, depth, bindings, Vec::new()))
+        // A graph's own nodes start one level in, so depth 0 means only what
+        // a caller asked for by name.  Everything inside a chain is a stage
+        // feeding another, which is what the stage cache is for.
+        Box::pin(self.render_graph_at(node, image, outer, sources, depth + 1, bindings, Vec::new()))
     }
 
     /// Boxed because a node renders another node: an `async fn` cannot name

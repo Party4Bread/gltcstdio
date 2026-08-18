@@ -139,6 +139,39 @@ Across the bank that took a render of all 769 at 900x900 from 47.0 s to
 quarter second from 33 to 10. In the editor `height-map-wireframe-gl` went
 from 26.6 s to 197 ms.
 
+Above that sits a second cache, on what has been rendered rather than what
+has been uploaded. Every filter in the bank is deterministic -- `verify.py`
+checks all 769 -- so a stage given the same images and the same values cannot
+produce anything new, and a chain has no reason to render its early stages
+twice. That is most of what an editor asks for: a slider on the last node
+leaves everything above it untouched, each node's thumbnail is the chain as
+far as that node, and two branches built the same way are the same picture.
+A hit costs a memcpy instead of a shader.
+
+It is keyed on the filter, the content of every image reaching it, and the
+values as the caller gave them -- the settings rather than the resolved
+numbers, since a graph node's knobs reach its children by name and two calls
+that resolve alike at one node can still differ below it.
+`the_stage_cache_changes_nothing` renders every filter cold and again warm,
+and `the_stage_cache_tells_settings_apart` checks the key is fine enough to
+keep two settings of a filter apart, both against references taken with the
+cache cleared so neither can inherit a mistake.
+
+What a caller asks for by name is not cached; everything inside a graph is.
+Hashing an input and copying an output costs about a millisecond at the size
+the editor works at, which is nothing against a chain and 20-40% against one
+cheap shader -- and a sweep rendering 769 different filters once each never
+asks twice. On the editor's own unit of work, the preview plus a thumbnail
+per node for a six-stage chain, the difference is:
+
+| | 512² | 900² |
+|---|---|---|
+| stages dropped, uploads kept | 73 ms | 222 ms |
+| stages kept | **8 ms** | **25 ms** |
+
+`cargo run --release --example chain_cost` measures it natively. A slider on
+the last of six stages settles in about a millisecond in the browser.
+
 The cache is exact rather than approximate: a texture is reused only for
 identical pixels, and `the_upload_cache_changes_nothing` renders all 769
 filters through a renderer holding other images to prove it. It holds at most

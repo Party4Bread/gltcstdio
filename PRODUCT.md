@@ -84,6 +84,10 @@ server behind it.
   renderers left as the identity matrix -- to the map back to texture space;
   until then they translated the image rather than sampling it. A render of
   the whole bank went from 47.0 s to 11.3 s.
+- Rendered stages are cached as well as uploaded images, keyed by the filter,
+  the content of its inputs and its settings, so a chain renders each stage
+  once however many times it is asked for. The editor's own unit of work --
+  the preview plus a thumbnail per node -- is about nine times quicker for it.
 - The same bank also runs through a Python package (moderngl/EGL) and a Rust
   crate with PyO3 bindings. Those are how the editor is built, not competing
   products.

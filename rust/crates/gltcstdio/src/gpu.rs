@@ -443,7 +443,7 @@ impl GpuRenderer {
     /// move, for every thumbnail and for every second input. The key is the
     /// content, so a cached texture is only ever reused for identical pixels.
     fn upload(&mut self, image: &Image) -> wgpu::TextureView {
-        let key = content_key(image);
+        let key = image.content_key();
         if let Some(at) = self.uploads.iter().position(|(k, _, _)| *k == key) {
             // Least recently used goes first, so the source image -- which
             // every render of a chain reads -- outlives the intermediates.
@@ -512,24 +512,6 @@ impl GpuRenderer {
     }
 }
 
-/// A content key for an image: two rolling hashes over its bytes, combined.
-///
-/// Hashing 4 MB costs about a millisecond against the twenty-five the mip
-/// chain costs, so the cache pays for itself on the first hit.
-fn content_key(image: &Image) -> u64 {
-    let mut a: u64 = 0xcbf2_9ce4_8422_2325 ^ ((image.width as u64) << 32 | image.height as u64);
-    let mut b: u64 = 0x9e37_79b9_7f4a_7c15 ^ image.data.len() as u64;
-    let mut words = image.data.chunks_exact(8);
-    for word in &mut words {
-        let v = u64::from_le_bytes(word.try_into().expect("chunks_exact(8)"));
-        a = (a ^ v).wrapping_mul(0x0000_0100_0000_01b3);
-        b = b.rotate_left(23).wrapping_add(v).wrapping_mul(0x9e37_79b9_7f4a_7c15);
-    }
-    for (i, byte) in words.remainder().iter().enumerate() {
-        a = (a ^ ((*byte as u64) << (i * 8))).wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    a ^ b.rotate_left(31)
-}
 
 /// How many mip levels an image of this size has.
 fn mip_levels(width: u32, height: u32) -> u32 {
