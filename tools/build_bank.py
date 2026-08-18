@@ -359,6 +359,60 @@ def switch_cases(main: str, param: str) -> int | None:
     return top
 
 
+def gaussian_blur2_spec() -> dict:
+    """`gaussian-blur2` as the app defines it.
+
+    `effects/blur/GaussianBlur.java` registers
+
+        (lambda ((param source :type image)
+                 (param radius :type double :standardRange (0 1) :default 0.05))
+          (gaussian-blurh (gaussian-blurv source radius) radius))
+
+    so it is a graph over two shaders that were recovered, not a filter in its
+    own right.  It had been reimplemented on the CPU as a plain separable
+    Gaussian, which is neither of those shaders: they accumulate in squared
+    space and walk down the mip chain as the radius grows.  It was also the
+    slowest thing in the bank -- 200 ms at radius 0.02 and 1.6 s at 0.12 on a
+    900x900 image, against 3.8 ms for the app's pair, whose cost does not grow
+    with the radius at all.  That reached well past this one entry: the 21
+    blur wrappers and every chain built on them route through it.
+    """
+    return {
+        "id": "gaussian-blur2",
+        "name": "Gaussian Blur",
+        "category": "blur",
+        "backend": "graph",
+        "fidelity": "extracted",
+        "supported": True,
+        "inputs": 1,
+        "extra_inputs": [],
+        "chain": ["gaussian-blurh", "gaussian-blurv"],
+        "graph": {
+            "filter": "gaussian-blurh",
+            "params": {"radius": {"bind": "radius"}},
+            "inputs": {
+                "source": {
+                    "filter": "gaussian-blurv",
+                    "params": {"radius": {"bind": "radius"}},
+                    "inputs": {"source": {"input": "source"}},
+                }
+            },
+        },
+        "params": [
+            {
+                "name": "radius",
+                "type": "float",
+                "label": "Radius",
+                "default": 0.05,
+                "min": 0.0,
+                "max": 1.0,
+                "widget": "slider",
+            }
+        ],
+        "presets": [],
+    }
+
+
 def main() -> None:
     shaders = json.loads(Path("work/shaders.json").read_text())
     raw_params = json.loads(Path("work/params.json").read_text())
@@ -645,6 +699,13 @@ def main() -> None:
         for fid in prefer_gl:
             filters[fid]["prefer_gl"] = True
         print(f"  {len(prefer_gl)} shaders replace their CPU reimplementation")
+
+    # `gaussian-blur2` is not a filter of the app's own: it is a lambda over
+    # two shaders that are, and both were recovered.  See
+    # `gaussian_blur2_spec` for what the app registers and what it replaces.
+    if "gaussian-blurh" in filters and "gaussian-blurv" in filters:
+        filters["gaussian-blur2"] = gaussian_blur2_spec()
+        print("  gaussian-blur2 built from the app's own pair of shaders")
 
     # Curated looks: several filters chained, rather than one shader.
     graphs_path = Path("work/graphs.json")

@@ -128,6 +128,10 @@ pub enum Slot {
     InDim { slot: usize, ty: String },
     /// An identity matrix.
     Identity { slot: usize, ty: String },
+    /// The map from the world coordinate a shader is handed back to texture
+    /// space, for the three shaders that sample through `u_SourceTransform`
+    /// rather than through the `__source__` macros.
+    SourceTransform { slot: usize, ty: String },
     /// A fixed value the engine supplies.
     Const { value: Vec<f32>, slot: usize, ty: String },
 }

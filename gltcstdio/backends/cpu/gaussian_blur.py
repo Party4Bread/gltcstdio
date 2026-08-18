@@ -70,29 +70,7 @@ def gaussian(img: np.ndarray, sigma: float) -> np.ndarray:
     return _convolve1d(_convolve1d(a, k, 0), k, 1)
 
 
-@cpu_filter(
-    "gaussian-blur2",
-    name="Gaussian Blur",
-    category="blur",
-    fidelity="reimplemented",
-    params=[
-        {
-            "name": "radius",
-            "type": "float",
-            "label": "Radius",
-            "default": 0.02,
-            "min": 0.0,
-            "max": 0.25,
-            "widget": "slider",
-        }
-    ],
-    presets=[
-        {"name": "default", "params": {}},
-        {"name": "strong", "params": {"radius": 0.08}},
-    ],
-)
-def gaussian_blur(img: np.ndarray, radius: float = 0.02) -> np.ndarray:
-    # Radius is relative to the shorter side, so the look is resolution
-    # independent -- the same convention the shader filters use.
-    sigma = float(radius) * min(img.shape[:2])
-    return np.clip(gaussian(img, sigma), 0, 255).astype(np.uint8)
+# `gaussian-blur2` is not registered here.  The app defines it as a lambda
+# over its own `gaussian-blurv` and `gaussian-blurh` shaders, both of which
+# were recovered, so the bank carries that graph and this module supplies only
+# the helper the other CPU filters blur with.

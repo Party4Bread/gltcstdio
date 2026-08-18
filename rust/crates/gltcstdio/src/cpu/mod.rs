@@ -87,7 +87,6 @@ type Filter = fn(&Image, &Values, &Inputs) -> Image;
 fn lookup(id: &str) -> Option<Filter> {
     Some(match id {
         // -- blur ---------------------------------------------------------
-        "gaussian-blur2" => blur::gaussian_blur,
         "gaussian-blur-test" => blur::gaussian_blur_test,
         "gaussian-blur-test-raw" => blur::gaussian_blur_test,
         "gaussian-blurh-test" => blur::gaussian_blur_h,

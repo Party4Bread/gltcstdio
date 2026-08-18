@@ -151489,6 +151489,55 @@
    "supported": true,
    "inputs": 1,
    "fidelity": "extracted"
+  },
+  "gaussian-blur2": {
+   "id": "gaussian-blur2",
+   "name": "Gaussian Blur",
+   "category": "blur",
+   "backend": "graph",
+   "fidelity": "extracted",
+   "supported": true,
+   "inputs": 1,
+   "extra_inputs": [],
+   "chain": [
+    "gaussian-blurh",
+    "gaussian-blurv"
+   ],
+   "graph": {
+    "filter": "gaussian-blurh",
+    "params": {
+     "radius": {
+      "bind": "radius"
+     }
+    },
+    "inputs": {
+     "source": {
+      "filter": "gaussian-blurv",
+      "params": {
+       "radius": {
+        "bind": "radius"
+       }
+      },
+      "inputs": {
+       "source": {
+        "input": "source"
+       }
+      }
+     }
+    }
+   },
+   "params": [
+    {
+     "name": "radius",
+     "type": "float",
+     "label": "Radius",
+     "default": 0.05,
+     "min": 0.0,
+     "max": 1.0,
+     "widget": "slider"
+    }
+   ],
+   "presets": []
   }
  }
 }

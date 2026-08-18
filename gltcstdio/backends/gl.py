@@ -321,6 +321,20 @@ class Renderer:
                 uni.value = (float(w), float(h))
             elif gl_type == "float":
                 uni.value = 0.0
+            elif name == "u_SourceTransform":
+                # Not identity.  The coordinate these shaders are handed spans
+                # world units -- `(v_uv - 0.5) * WORLD * vec2(aspect, 1)` --
+                # and they sample with `texture(u_Source, u_SourceTransform *
+                # vec3(uv, 1))`, so this uniform is the way back to texture
+                # space: the same map the `__source__` macros apply.  Left as
+                # the identity they sampled at world coordinates directly,
+                # which translates the image by half a frame instead of
+                # blurring it, and `gaussian-blurv` at radius 0 came back a
+                # mean 31/255 from its input rather than untouched.
+                aspect = out_w / out_h if out_h else 1.0
+                sx, sy = 1.0 / (WORLD * aspect), 1.0 / WORLD
+                # Column-major, as GL takes a mat3.
+                uni.value = (sx, 0.0, 0.0, 0.0, sy, 0.0, 0.5, 0.5, 1.0)
             elif gl_type == "mat3":
                 uni.value = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 

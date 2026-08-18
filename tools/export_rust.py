@@ -749,6 +749,14 @@ def build(
             continue
         src = {"vec2": {"kind": "in_dim"}, "mat3": {"kind": "identity"},
                "float": {"kind": "const", "value": [0.0]}}[ty]
+        # `u_SourceTransform` is the one legacy matrix that is not identity.
+        # The three shaders reading it -- `blur`, `gaussian-blurh` and
+        # `gaussian-blurv` -- are handed a coordinate in world units and
+        # sample with `texture(u_Source, u_SourceTransform * vec3(uv, 1))`,
+        # so it carries the way back to texture space: the same map the
+        # `__source__` macros apply everywhere else.
+        if name == "u_SourceTransform":
+            src = {"kind": "source_transform"}
         plan.add(ty, src, name)
 
     # -- parameters ------------------------------------------------------

@@ -294,3 +294,72 @@ fn unknown_filters_are_an_error() {
     let err = r.apply("no-such-filter", &test_image(8), &Params::new());
     assert!(matches!(err, Err(gltcstdio::Error::Unknown(_))));
 }
+
+/// A noisy image, so a blur has something to remove. A gradient does not:
+/// blurring one is nearly the identity, which would pass whatever happened.
+fn noise(size: u32) -> Image {
+    let mut img = Image::empty(size, size);
+    let mut seed = 12345u32;
+    for y in 0..size {
+        for x in 0..size {
+            let mut next = || {
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                (seed >> 24) as u8
+            };
+            img.set(x, y, [next(), next(), next(), 255]);
+        }
+    }
+    img
+}
+
+/// Mean difference between vertically adjacent pixels: it falls as an image
+/// is blurred down the axis it measures.
+fn roughness(img: &Image) -> f64 {
+    let (w, h) = (img.width as usize, img.height as usize);
+    let mut total = 0.0;
+    let mut n = 0.0;
+    for y in 1..h {
+        for x in 0..w {
+            for c in 0..3 {
+                let a = img.data[(y * w + x) * 4 + c] as f64;
+                let b = img.data[((y - 1) * w + x) * 4 + c] as f64;
+                total += (a - b).abs();
+                n += 1.0;
+            }
+        }
+    }
+    total / n
+}
+
+/// The three shaders that sample through `u_SourceTransform` must sample the
+/// image, not translate it.
+///
+/// They are handed a coordinate in world units and read the source with
+/// `texture(u_Source, u_SourceTransform * vec3(uv, 1))`, so that uniform is
+/// the way back to texture space. Bound to the identity matrix -- which is
+/// what every other legacy matrix gets -- they sampled at world coordinates
+/// directly and shifted the picture half a frame instead of blurring it,
+/// while still returning a plausible-looking image.
+#[test]
+fn the_blur_shaders_sample_where_they_are_looking() {
+    let Some(mut r) = renderer() else {
+        eprintln!("no GPU device; skipping");
+        return;
+    };
+    let src = noise(128);
+    let rough = roughness(&src);
+
+    // A radius under one pixel has nothing to average, so the shader must
+    // hand back exactly what it was given.
+    for id in ["gaussian-blurv", "gaussian-blurh"] {
+        let out = r.apply(id, &src, &params![("radius", 0.0)]).unwrap();
+        assert_eq!(out.data, src.data, "{id} at radius 0 is not its input");
+    }
+
+    // Each blurs down its own axis: measured vertically, the vertical pass
+    // must flatten the image far more than the horizontal one.
+    let v = roughness(&r.apply("gaussian-blurv", &src, &params![("radius", 0.08)]).unwrap());
+    let h = roughness(&r.apply("gaussian-blurh", &src, &params![("radius", 0.08)]).unwrap());
+    assert!(v < rough * 0.25, "gaussian-blurv barely blurred: {rough:.1} -> {v:.1}");
+    assert!(v < h * 0.5, "the two passes blur alike, so neither is on its axis: {v:.1} vs {h:.1}");
+}

@@ -16,10 +16,11 @@ the WebGPU build translating them to WGSL during the build.
 | Filters that render | **769** |
 | — GPU (original GLSL, unmodified) | 463 |
 | — the app's own wrappers around those | 65 |
+| — the app's own blur, a graph over two of them | 1 |
 | — curated looks (chained filter graphs) | 175 |
-| — CPU (numpy) | 66 |
+| — CPU (numpy) | 65 |
 | Categories | 33 |
-| Presets on those filters | 1390 |
+| Presets on those filters | 1388 |
 | Configurable parameters | 5246 |
 | Filters reading a second image | 120 |
 | GLSL support functions | 201 |
@@ -325,16 +326,18 @@ so a long chain shows where the look came from as well as where it arrived.
 
 The preview renders at up to 900 pixels rather than at the image's full size.
 The canvas shows a few hundred, and a chain redrawn on every slider step was
-spending most of its time on detail nobody could see: `height-map-wireframe-gl`
-took 26.6 s and now takes about a second. **Download** renders the chain again
-at the image's real size, so what is saved is never the preview.
+spending most of its time on detail nobody could see. That, and correcting the
+blur the wrappers are built on, took `height-map-wireframe-gl` from 26.6 s to
+197 ms. **Download** renders the chain again at the image's real size, so what
+is saved is never the preview.
 
 The whole graph goes to the wasm module in one call, and the engine renders it
 by the same path a curated look takes, so a chain built here and a chain in
 the bank are the same thing.
 
 A look opened as nodes renders exactly what the look renders — not close, the
-same bytes. All 175 were checked in a browser: 172 byte-identical and 3 that
+same bytes. All 176 graphs the bank carries were checked in a browser -- the
+175 looks and the app's own blur -- giving 173 byte-identical and 3 that
 no browser will render at all, being the `flower` shader WebGPU refuses. Two
 things are needed for that, and neither is guessed at:
 

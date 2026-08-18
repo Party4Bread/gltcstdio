@@ -18,10 +18,11 @@ xtask                        GLSL -> WGSL translation
 | Filters that render | **769** |
 | — GPU (the app's GLSL, translated to WGSL) | 463 |
 | — the app's own wrappers around those | 65 |
+| — the app's own blur, a graph over two of them | 1 |
 | — curated looks (chained filter graphs) | 175 |
-| — CPU | 66 |
+| — CPU | 65 |
 | Categories | 33 |
-| Presets | 1390 |
+| Presets | 1388 |
 | Configurable parameters | 5246 |
 
 Rendering the whole bank once at 256x256 takes about 2.1 s on an RTX 5070 Ti.
@@ -73,7 +74,7 @@ sources.insert("other".to_string(), second);
 let out = r.apply_graph_with_sources(&graph, &src, &Default::default(), &sources)?;
 ```
 
-Without a GPU, `Renderer::new` falls back to CPU-only and the 66 CPU filters
+Without a GPU, `Renderer::new` falls back to CPU-only and the 65 CPU filters
 still work; `Renderer::cpu_only()` skips the device entirely.
 
 ## Speed
@@ -112,20 +113,31 @@ intermediates are 176 MB, past the budget, so nothing survives to the next
 render — editing that chain still costs 33 ms, because only the stages after
 the one being edited are new.
 
-What is left of the slow tail is one filter, not many. `gaussian-blur2` is
-the only thing in the bank that costs more than a quarter second at any real
-size, and the 21 blur wrappers and the chains over them all route through it:
-it is 200 ms at radius 0.02 and 1.6 s at 0.12 on a 900x900 image, growing
-with the radius. It should not be a CPU filter at all --
+The slow tail used to be one filter, and is not any more. `gaussian-blur2`
+was a CPU reimplementation costing 200 ms at radius 0.02 and 1.6 s at 0.12 on
+a 900x900 image, and the 21 blur wrappers and every chain over them route
+through it. It is not a filter of the app's own:
 `effects/blur/GaussianBlur.java` registers it as `(gaussian-blurh
 (gaussian-blurv source radius) radius)` over two shaders that were recovered,
-and those cost 3.8 ms whatever the radius. They cannot be used yet: they are
-three of the shaders written against the engine's earlier uniform convention,
-reading the source through `u_SourceTransform`, and both renderers bind that
-to the identity matrix. The coordinate they are handed spans world units, so
-they sample the texture at those coordinates directly and shift the image by
-half a frame rather than blurring it. `examples/blurcheck.rs` measures both
-sides and its comment says what binding that uniform correctly would take.
+and it is now that graph, at 3.8 ms whatever the radius.
+
+Using them meant fixing them first. They are three of the shaders written
+against the engine's earlier uniform convention -- `blur` is the third -- and
+they read the source through `u_SourceTransform` while every other legacy
+matrix is the identity. The coordinate they are handed spans world units, so
+bound to the identity they sampled the texture at those coordinates directly
+and translated the picture half a frame instead of blurring it, plausibly
+enough that nothing caught it: `gaussian-blurv` at radius 0 should return its
+input untouched and came back a mean 31/255 away. That uniform now carries the
+map back to texture space, which is the same one the `__source__` macros apply
+everywhere else, in both renderers.
+`the_blur_shaders_sample_where_they_are_looking` pins it, and the two
+renderers agree to within 0.3 on how much each pass flattens a noise field.
+
+Across the bank that took a render of all 769 at 900x900 from 47.0 s to
+11.3 s, the median from 6.4 ms to 4.2 ms, and the filters costing more than a
+quarter second from 33 to 10. In the editor `height-map-wireframe-gl` went
+from 26.6 s to 197 ms.
 
 The cache is exact rather than approximate: a texture is reused only for
 identical pixels, and `the_upload_cache_changes_nothing` renders all 769
@@ -216,9 +228,8 @@ pipeline and reports what the browser refused, and its output is
 The one that does not, `flower`, takes a gradient inside a conditional nested
 too deep to lift. It says so in a sentence rather than drawing a blank frame,
 keeping the driver's own message on hover, which is what any refused shader
-now does. Three curated looks are
-built on it -- `glory`, `radiate` and `seraphim` -- so those are the only
-three of the 175 a browser cannot show.
+now does. Three curated looks are built on it -- `glory`, `radiate` and
+`seraphim` -- so those are the only three of the 175 a browser cannot show.
 
 ## How the shaders got here
 
@@ -297,7 +308,7 @@ Resampling is bilinear where the Python build uses Lanczos.
 ## Tests
 
 ```bash
-cargo test --release            # 17 tests; the GPU ones skip without a device
+cargo test --release            # 18 tests; the GPU ones skip without a device
 cargo run --release --example sweep -- in.rgba 256 256 out/
 cargo run --release --example hop_cost
 cargo run --release --example slowest -- 900 25
@@ -307,9 +318,12 @@ cargo run --release --example slowest -- 900 25
 which is how the fidelity numbers were measured; `hop_cost` is where the
 speed figures come from. `slowest` times every filter at the size the editor
 previews at and lists the worst, which is what a report of lag gets checked
-against: 769 filters, 6.4 ms median, and 33 of them over 250 ms.
+against: 769 filters, 4.2 ms median, and 10 of them over 250 ms.
 
-Four of the tests are about the claims above rather than about a filter:
+Five of the tests are about the claims above rather than about a filter:
+`the_blur_shaders_sample_where_they_are_looking` holds the three shaders that
+sample through `u_SourceTransform` to returning their input at a radius under
+one pixel and to blurring down their own axis;
 `the_padded_convolution_is_the_plain_one` holds the CPU blur's padded inner
 loop to the same numbers as the convolution written the obvious way, at sizes
 and kernel widths including those wider than the image;

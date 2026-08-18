@@ -726,6 +726,17 @@ fn uniform_bytes(
                     slots[*at + c][c] = 1.0;
                 }
             }
+            // `(v_uv - 0.5) * 2 * vec2(aspect, 1)` is the coordinate these
+            // shaders are handed; this is the way back, and each column of a
+            // mat3 occupies a slot of its own.
+            Slot::SourceTransform { slot: at, .. } => {
+                let (sx, sy) = (1.0 / (2.0 * out_aspect), 0.5);
+                slots[*at][0] = sx;
+                slots[*at + 1][1] = sy;
+                slots[*at + 2][0] = 0.5;
+                slots[*at + 2][1] = 0.5;
+                slots[*at + 2][2] = 1.0;
+            }
             Slot::Const { value, slot: at, ty } => put(&mut slots, *at, ty, value),
         }
     }

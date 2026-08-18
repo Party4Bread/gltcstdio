@@ -39,7 +39,7 @@ treated as constraints to hold, not as the scoreboard.
 ## Positioning
 
 The bank contains 463 GLSL filters translated to WGSL, 65 graphs the app
-builds around those filters, 175 curated looks, and 66 CPU effects. Opening a graph-based
+builds around those filters, 175 curated looks, and 65 CPU effects. Opening a graph-based
 look in the editor gives back its actual stages, editable, rendering
 byte-identically to the look itself.
 
@@ -63,8 +63,9 @@ server behind it.
 
 - 769 filters: 463 GPU (GLSL translated to WGSL), 65 wrappers around those
   (21 feeding an input from a blurred source, 44 confining the effect to a
-  region), 175 curated looks (chains of other filters), 66 CPU. 33
-  categories, 1390 presets, 5246 parameters, 120 filters that read a second
+  region), 175 curated looks (chains of other filters), 65 CPU, and the
+  app's own blur, a graph over two of its shaders. 33
+  categories, 1388 presets, 5246 parameters, 120 filters that read a second
   image.
 - Every parameter type has a control, generated from the bank spec rather
   than written per filter: scalars, enums, colours with alpha, text, palettes,
@@ -77,13 +78,12 @@ server behind it.
   inside a conditional nested too deep to lift, which WGSL forbids. The three
   curated looks built on it — `glory`, `radiate`, `seraphim` — cannot render
   in the editor. They work natively.
-- Three shaders written against the engine's earlier uniform convention --
-  `blur`, `gaussian-blurh` and `gaussian-blurv` -- read the source through a
-  transform both renderers bind to the identity matrix, so they translate the
-  image rather than sampling it. Until that is bound correctly, `gaussian-blur2`
-  keeps a CPU reimplementation of what the app builds from those two shaders,
-  which is the slowest thing in the bank and the whole of the editor's
-  remaining lag. `examples/blurcheck.rs` measures it.
+- `gaussian-blur2` is the app's own graph over its `gaussian-blurv` and
+  `gaussian-blurh` shaders, not a reimplementation of it. Getting there meant
+  binding `u_SourceTransform` -- which those two and `blur` read, and both
+  renderers left as the identity matrix -- to the map back to texture space;
+  until then they translated the image rather than sampling it. A render of
+  the whole bank went from 47.0 s to 11.3 s.
 - The same bank also runs through a Python package (moderngl/EGL) and a Rust
   crate with PyO3 bindings. Those are how the editor is built, not competing
   products.
@@ -105,7 +105,7 @@ assets, or metadata.
   finite, is deterministic, survives a different image size, and responds to
   its parameters — 769/769 on all but the last, which is 767/769 because two
   filters declare nothing to set.
-- `rust/crates/gltcstdio/tests/`: 16 tests, including that a curated look
+- `rust/crates/gltcstdio/tests/`: 18 tests, including that a curated look
   opened as a chain renders as the look itself, and that the upload cache
   changes no pixel.
 - No user research, testimonials, usage data, or comparative benchmarks exist.
