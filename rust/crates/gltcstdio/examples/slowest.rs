@@ -8,6 +8,9 @@ use std::time::Instant;
 
 use gltcstdio::{bank, Backend, Image, Params, Renderer};
 
+/// Timed runs per filter, best taken.
+const RUNS: usize = 5;
+
 fn main() {
     let mut args = std::env::args().skip(1);
     let n: u32 = args.next().and_then(|s| s.parse().ok()).unwrap_or(900);
@@ -35,18 +38,31 @@ fn main() {
     let mut timed: Vec<(f64, String, &'static str)> = Vec::new();
     for id in bank().ids().collect::<Vec<_>>() {
         let spec = bank().get(id).unwrap();
-        // Warm the upload cache first: the editor pays for the pyramid once,
-        // not on the render being measured.  The stage cache has to go the
-        // other way -- it holds the answer to exactly this call, so leaving
-        // it would time a memcpy rather than the filter.
-        let _ = r.apply(id, &src, &Params::new());
-        r.forget_stages();
-        let started = Instant::now();
+        // Warm the upload cache and build the pipeline first: a filter's own
+        // shader is compiled the first time it is used, which costs several
+        // times what rendering it does and would swamp what is being
+        // measured.  The stage cache has to go the other way -- it holds the
+        // answer to exactly this call, so leaving it would time a memcpy.
+        //
+        // Best of several, because one run in a sweep of 769 catches whatever
+        // the driver was doing for the filter before it.
         if r.apply(id, &src, &Params::new()).is_err() {
             continue;
         }
+        let mut best = f64::MAX;
+        for _ in 0..RUNS {
+            r.forget_stages();
+            let started = Instant::now();
+            if r.apply(id, &src, &Params::new()).is_err() {
+                break;
+            }
+            best = best.min(started.elapsed().as_secs_f64() * 1000.0);
+        }
+        if best == f64::MAX {
+            continue;
+        }
         timed.push((
-            started.elapsed().as_secs_f64() * 1000.0,
+            best,
             id.to_string(),
             match spec.backend {
                 Backend::Cpu => "cpu",

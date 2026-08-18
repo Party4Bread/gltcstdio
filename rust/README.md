@@ -172,6 +172,35 @@ per node for a six-stage chain, the difference is:
 `cargo run --release --example chain_cost` measures it natively. A slider on
 the last of six stages settles in about a millisecond in the browser.
 
+### Where a shader's time goes
+
+Not in the shader, for almost all of them. A typical filter renders 900x900 in
+about 1.4 ms, and the same filter renders 256x256 -- a twelfth of the pixels --
+in about 0.7 ms, so half of it is fixed: building the pass, and reading 3.2 MB
+back off the device. `emboss`, `checkerboard`, `mandelbrot`, `lake-mirror` and
+`label-frame` land within a few tenths of each other despite having very
+little in common, which is what a floor looks like.
+
+Two candidate savings were tried against that and neither moved:
+
+- `find-max-xy-gl` converts the best colour so far to HSL on every comparison,
+  four times a turn over fifty turns, when it changes only on the turns that
+  replace it. Carrying it instead removes a hundred colour-space conversions
+  per pixel. The output was byte-identical and the time was 1.59 ms against
+  1.58 ms -- the driver's compiler already handles that shape.
+- Six shaders (`height-map`, `mesh` and their variants) write `dzdy =` where
+  the line above writes `dzdx +=`, so every turn of that loop but the last is
+  sampled and thrown away -- up to ten wasted texture reads a pixel at the top
+  of `normalSmoothing`. Rendering at both ends of that parameter differs by
+  0.04 ms at 900x900, and again at 2048x2048 where the shader is thoroughly
+  the cost.
+
+The filters that are genuinely shader-bound are ray marchers -- `quicksilver-3d`
+at 12.8 ms and `height-map` at 11.2 ms, both scaling cleanly with pixels -- and
+what they spend it on is the marching loop, which is the algorithm rather than
+waste. The bank's slow end is CPU filters and chains, not GLSL, so that is
+where the next optimisation is. The shaders are left as the app wrote them.
+
 The cache is exact rather than approximate: a texture is reused only for
 identical pixels, and `the_upload_cache_changes_nothing` renders all 769
 filters through a renderer holding other images to prove it. It holds at most
@@ -345,13 +374,20 @@ cargo test --release            # 18 tests; the GPU ones skip without a device
 cargo run --release --example sweep -- in.rgba 256 256 out/
 cargo run --release --example hop_cost
 cargo run --release --example slowest -- 900 25
+cargo run --release --example timeone -- height-map 900 30
 ```
 
 `sweep` renders every filter from a raw RGBA8 file and reports what failed,
 which is how the fidelity numbers were measured; `hop_cost` is where the
 speed figures come from. `slowest` times every filter at the size the editor
 previews at and lists the worst, which is what a report of lag gets checked
-against: 769 filters, 4.2 ms median, and 10 of them over 250 ms.
+against: 769 filters, 3.3 ms median, 7 of them over 250 ms, and every one of
+those a CPU filter or a chain. It builds each pipeline before timing anything
+-- a filter's shader is compiled the first time it is used, which costs
+several times what running it does -- and takes the best of five runs, because
+one run in a sweep of 769 catches whatever the driver was doing for the filter
+before it. `timeone` times a single filter the same way in isolation, which is
+the number to trust when a sweep and a hunch disagree.
 
 Five of the tests are about the claims above rather than about a filter:
 `the_blur_shaders_sample_where_they_are_looking` holds the three shaders that
