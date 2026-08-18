@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gltcstdio</title>
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%236ea8fe%27/%3E%3Ccircle cx=%2711%27 cy=%2711%27 r=%273%27 fill=%27%230e0f13%27/%3E%3Ccircle cx=%2721%27 cy=%2711%27 r=%273%27 fill=%27%230e0f13%27/%3E%3Ccircle cx=%2711%27 cy=%2721%27 r=%273%27 fill=%27%230e0f13%27/%3E%3Ccircle cx=%2721%27 cy=%2721%27 r=%273%27 fill=%27%230e0f13%27/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark"></span>
+    <h1>gltcstdio</h1>
+  </div>
+  <div class="meta" id="bankMeta">loading…</div>
+  <div class="topActions">
+    <label class="btn" for="fileInput">Open image</label>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+    <button class="btn" id="addImageBtn" title="Bring a second picture into the chain">Add image</button>
+    <input type="file" id="imageInput" accept="image/*" hidden>
+    <button class="btn" id="clearBtn" title="Start from an empty chain">Clear chain</button>
+    <button class="btn" id="downloadBtn" disabled>Download</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <aside class="sidebar">
+    <input type="search" id="search" placeholder="Search filters…" autocomplete="off">
+    <div class="catbar" id="categories"></div>
+    <p class="hint">Click to add to the chain · a chained look loads as nodes</p>
+    <ul class="filterlist" id="filterList"></ul>
+  </aside>
+
+  <section class="stage">
+    <div class="preview">
+      <div class="canvasWrap" id="canvasWrap">
+        <div class="dropzone" id="dropzone">
+          <strong>Drop an image here</strong>
+          <span>or use “Open image” above</span>
+        </div>
+        <canvas id="preview" hidden></canvas>
+        <canvas id="original" hidden></canvas>
+        <div class="spinner" id="spinner" hidden></div>
+      </div>
+      <div class="stagebar">
+        <span id="statusText">Starting WebGPU…</span>
+        <label class="compare"><input type="checkbox" id="compareToggle"> Show the original</label>
+      </div>
+    </div>
+
+    <div class="graph" id="graph">
+      <svg class="wires" id="wires"></svg>
+      <div class="nodes" id="nodes"></div>
+      <div class="graphbar">
+        <span id="graphHint">Add a filter to start the chain</span>
+        <span class="spacer"></span>
+        <button class="chip" id="zoomOut" title="Zoom out">−</button>
+        <button class="chip" id="zoomFit" title="Fit the chain">fit</button>
+        <button class="chip" id="zoomIn" title="Zoom in">+</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="controls">
+    <div class="controlsHead">
+      <h2 id="filterName">No node selected</h2>
+      <p id="filterMeta"></p>
+    </div>
+    <div class="secondSlot" id="secondSlot" hidden>
+      <button class="btn wide" id="secondLabel">Add an image</button>
+      <p class="note" id="secondNote"></p>
+    </div>
+    <div class="presets" id="presets"></div>
+    <div class="params" id="params"></div>
+    <button class="btn wide" id="resetBtn" hidden>Reset this node</button>
+  </aside>
+
+</main>
+
+<div class="blocker" id="blocker" hidden>
+  <div>
+    <h2 id="blockerTitle">WebGPU is not available</h2>
+    <p id="blockerLead"></p>
+    <ul class="remedies" id="blockerRemedies"></ul>
+    <p class="note" id="blockerWhy"></p>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
