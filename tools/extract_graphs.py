@@ -228,6 +228,9 @@ class GraphParser:
         self.map_locals: dict[str, list] = {}
         # Interpreter for the descriptor expressions a `K0` list holds.
         self.registry: Registry | None = None
+        # The knobs the operator being read declares, so an expression that
+        # mentions one keeps the reference instead of a guess.
+        self.knobs: set[str] = set()
 
     def load_locals(self, src: str) -> None:
         self.locals = {m.group(1): m.group(2) for m in LOCAL_CONST_RE.finditer(src)}
@@ -300,9 +303,21 @@ class GraphParser:
                 # `P0("locusTransform")` as an image left the knob unreachable.
                 images = IMAGE_INPUTS.get(filter_id) or ["source"]
                 if name in images or name in ("source", "source1"):
+                    # A reference to one of the operator's own knobs is not an
+                    # image: `preset-troubled-waves` came out reading its
+                    # source from `intensity`, which no caller ever supplies,
+                    # so it rendered from a blank.
+                    if value.get("input") in self.knobs:
+                        value = {"input": "source"}
                     inputs[name] = value
                 else:
                     params[name] = {"bind": value["input"]}
+            elif isinstance(value, dict) and "filter" in value:
+                # A filter produces an image, so it can only be feeding an
+                # input: `preset-mondrian` builds its palette with
+                # `color-list-to-palette-image`, and `palette` is an image
+                # port. Left among the parameters it reached nothing.
+                inputs[name] = value
             elif value is not None:
                 params[name] = value
 
@@ -454,12 +469,50 @@ class GraphParser:
         return 0.0
 
     def dsl_value(self, expr: str):
+        """An embedded expression as a value, with the knobs left open.
+
+        `preset-focus` sets its locus with
+
+            (mat3 (vec3 locusScale 0.0 0.0) (vec3 0.0 locusScale 0.0)
+                  (vec3 tx ty 1.0))
+
+        and `symbol_value` answers for any name it is asked about -- 1.0 for
+        one that reads like a scale, 0.0 otherwise -- so those three knobs
+        were replaced by guesses and the matrix came out the identity.  Every
+        control the app draws on the canvas for this family moved nothing.
+        A knob keeps its place instead, as a hole the renderer fills.
+        """
         try:
             tree = dsl.parse(expr)
-            env = {s: self.symbol_value(s) for s in dsl.free_symbols(tree)}
-            return dsl.evaluate(tree, env)
         except Exception:  # noqa: BLE001 - an unparsed expression is dropped
             return {"expr": expr}
+        # The expression may be a filter rather than a value: `preset-chop`
+        # builds its palette with `(color-list-to-palette-image
+        # (make-color-list (rgba ...) ...))`, and `palette` is an image input
+        # on the filter it feeds. Evaluated as a number it failed and was
+        # stored as unreadable text.
+        node = _dsl_node(tree, self.known_ids, 0, None, self.knobs)
+        if node is not None:
+            return node
+        env, holes = {}, {}
+        for name in dsl.free_symbols(tree):
+            if name in self.knobs:
+                # Spaced by multiplication: at this magnitude a float has
+                # no room for `+ 1`, so every marker came back the same knob.
+                marker = _HOLE_BASE * (len(holes) + 1)
+                env[name], holes[marker] = marker, name
+            else:
+                env[name] = self.symbol_value(name)
+        try:
+            value = dsl.evaluate(tree, env)
+        except Exception:  # noqa: BLE001
+            return {"expr": expr}
+        if not holes:
+            return value
+        filled = _fill_holes(value, holes)
+        # A knob that went through arithmetic leaves no marker to find, only a
+        # wild number; that is not a value to ship, so the guess stands.
+        return value if filled is None else filled
 
     def value(self, text: str):
         text = text.strip()
@@ -582,6 +635,12 @@ SAMPLER_RE = re.compile(r"__(\w+)__(?:texelFetch__)?\s*\(")
 # pass arguments positionally.
 PARAM_ORDER: dict[str, list[str]] = {}
 
+# Filter id -> the order a lambda declares its own knobs in.  A shader's
+# positional order is its own and does not follow the GLSL signature, which is
+# why positional knobs are otherwise left alone; a lambda writes the order
+# down, so a call like `(gaussian-blur2 source blurRadius)` can be read.
+LAMBDA_PARAM_ORDER: dict[str, list[str]] = {}
+
 
 def load_param_order(shaders: dict) -> None:
     PARAM_ORDER.clear()
@@ -622,6 +681,116 @@ def _mapped_value(value, env):
     return None
 
 
+# Stand-ins for a knob inside an expression, far from any real setting so a
+# survivor is unmistakable.
+_HOLE_BASE = 1e30
+
+
+def _fill_holes(value, holes: dict):
+    """`value` with each marker put back as the knob it stood for.
+
+    Returns None if a marker was consumed by arithmetic rather than landing
+    somewhere whole, which means the expression cannot be represented this way.
+    """
+    if isinstance(value, list):
+        out = []
+        for item in value:
+            filled = _fill_holes(item, holes)
+            if filled is None:
+                return None
+            out.append(filled)
+        return out
+    if isinstance(value, (int, float)):
+        if value in holes:
+            return {"bind": holes[value]}
+        return None if abs(value) >= _HOLE_BASE / 2 else value
+    return value
+
+
+def _resolved(node) -> int:
+    """How many filter nodes a parse managed to resolve."""
+    if not isinstance(node, dict) or "filter" not in node:
+        return 0
+    return 1 + sum(_resolved(c) for c in (node.get("inputs") or {}).values())
+
+
+def _negated_bind(value, bound) -> dict | None:
+    """`(neg knob)` where `knob` is one the caller supplies."""
+    if not isinstance(value, list) or len(value) != 2:
+        return None
+    if str(value[0]) != "neg" or not isinstance(value[1], dsl.Sym):
+        return None
+    name = str(value[1])
+    return {"bind": name, "neg": True} if bound and name in bound else None
+
+
+def _expr_with_holes(value, env, bound):
+    """An expression mentioning the lambda's knobs, as a value with holes.
+
+    Returns None when it mentions none of them, or when one is consumed by
+    arithmetic and leaves nothing to put back.
+    """
+    if not isinstance(value, list) or not bound:
+        return None
+    try:
+        free = dsl.free_symbols(value)
+    except Exception:  # noqa: BLE001
+        return None
+    knobs = [s for s in free if s in bound]
+    if not knobs:
+        return None
+    holes, scope = {}, dict(env or {})
+    for name in free:
+        if name in bound:
+            marker = _HOLE_BASE * (len(holes) + 1)
+            scope[name], holes[marker] = marker, name
+        elif name not in scope:
+            return None
+    try:
+        evaluated = dsl.evaluate(value, scope)
+    except Exception:  # noqa: BLE001
+        return None
+    return _fill_holes(evaluated, holes)
+
+
+def _struct_fields(value, env, bound) -> dict | None:
+    """`(make-vignette :intensity 0.35 :color (rgba ...))` as its fields.
+
+    The app groups several of a filter's knobs behind one struct argument and
+    the filter declares them flattened -- `adjust` has `vignette_intensity`,
+    `vignette_hardness`, `vignette_color` and `vignette_transform`. Without
+    this the whole struct failed to evaluate and every one of them was lost.
+    """
+    if not isinstance(value, list) or not value:
+        return None
+    if not str(value[0]).startswith("make-"):
+        return None
+    out: dict = {}
+    i = 1
+    while i + 1 < len(value) + 1 and i < len(value):
+        key = value[i]
+        if not (isinstance(key, dsl.Sym) and str(key).startswith(":")):
+            i += 1
+            continue
+        if i + 1 >= len(value):
+            break
+        name, raw = str(key)[1:], value[i + 1]
+        if isinstance(raw, dsl.Sym):
+            # The knob wins over its own default here too, as it does for a
+            # plain argument: a default says where the control starts.
+            if bound and str(raw) in bound:
+                out[name] = {"bind": str(raw)}
+            elif env and str(raw) in env:
+                out[name] = env[str(raw)]
+        else:
+            try:
+                out[name] = dsl.evaluate(raw, env or {})
+            except Exception:  # noqa: BLE001
+                pass
+        i += 2
+    return out or None
+
+
 def _bind_positional_input(inputs: dict, op: str, node: dict) -> None:
     """Attach a positional image argument to the next free image input.
 
@@ -660,6 +829,8 @@ def _dsl_node(
 
     inputs: dict[str, dict] = {}
     params: dict = {}
+    # Which positional slot the next unnamed argument fills.
+    slot = 0
     i = 1
     while i < len(tree):
         item = tree[i]
@@ -674,16 +845,53 @@ def _dsl_node(
             elif isinstance(value, dsl.Sym):
                 if str(value) in dsl.SOURCE_NAMES:
                     inputs[key] = {"input": "source"}
-                elif env and str(value) in env:
-                    params[key] = env[str(value)]
                 elif bound and str(value) in bound:
                     # A lambda knob passed straight through; the value comes
                     # from the caller, so record which knob feeds this slot.
+                    # This has to win over the defaults below: a knob that
+                    # declares one was being baked in as that literal, which
+                    # left the control connected to nothing -- `disco-planet`
+                    # passes `:intensity innerIntensity` and moved its slider
+                    # for no effect at all.
                     params[key] = {"bind": str(value)}
+                elif env and str(value) in env:
+                    params[key] = env[str(value)]
             else:
+                negated = _negated_bind(value, bound)
+                if negated is not None:
+                    # `:intensity (neg intensity)` -- an unsharp mask is a
+                    # blend towards the blur run backwards, and the sign has
+                    # to travel with the binding.
+                    params[key] = negated
+                    i += 2
+                    continue
+                held = _expr_with_holes(value, env, bound)
+                if held is not None:
+                    # The same as the Java-registered path: an expression that
+                    # mentions one of the lambda's own knobs keeps a hole
+                    # where the knob goes rather than a stand-in number.
+                    params[key] = held
+                    i += 2
+                    continue
                 try:
                     params[key] = dsl.evaluate(value, env or {})
                 except Exception:  # noqa: BLE001
+                    fields = _struct_fields(value, env, bound)
+                    if fields is not None:
+                        # `:vignette (make-vignette :intensity 0.35 ...)` is a
+                        # struct the filter takes apart. `adjust` calls the
+                        # pieces `vignette_intensity` and friends; the
+                        # `vignette` filter calls them `intensity` and
+                        # `hardness`, so the target's own list decides.
+                        known = set(PARAM_ORDER.get(op) or ())
+                        for field, fval in fields.items():
+                            prefixed = f"{key}_{field}"
+                            if prefixed not in known and field in known:
+                                params[field] = fval
+                            else:
+                                params[prefixed] = fval
+                        i += 2
+                        continue
                     base = _mapped_value(value, env)
                     if base is not None:
                         params[key] = base
@@ -692,12 +900,25 @@ def _dsl_node(
 
         if isinstance(item, dsl.Sym) and str(item) in dsl.SOURCE_NAMES:
             _bind_positional_input(inputs, op, {"input": "source"})
+            slot += 1
         # A knob passed by position -- `(swirl source intensity x y size)` --
         # is deliberately left unbound: the app's positional order is its own
         # and does not follow the GLSL signature, so guessing put `myswirl`'s
         # intensity into `swirl`'s `modelTransform`.
+        elif isinstance(item, dsl.Sym) and bound and str(item) in bound:
+            # A knob passed by position. Only where the operator is a lambda,
+            # which writes its own order down: `soft-focus` blurs with
+            # `(gaussian-blur2 source blurRadius)`, and that second slot is
+            # the `radius` the lambda declares. Without it the blur ran at
+            # its own default and the control did nothing.
+            order = LAMBDA_PARAM_ORDER.get(op)
+            images = set(IMAGE_INPUTS.get(op) or ["source"]) | {"source", "source1"}
+            if order and slot < len(order) and order[slot] not in images:
+                params.setdefault(order[slot], {"bind": str(item)})
+            slot += 1
         elif isinstance(item, list):
             child = _dsl_node(item, known_ids, depth + 1, env, bound)
+            slot += 1
             if child is not None:
                 _bind_positional_input(inputs, op, child)
             else:
@@ -837,9 +1058,13 @@ def parse_lambda(text: str) -> tuple[str, dict, dict, object] | None:
             elif str(key) == ":type" and isinstance(val, (str, dsl.Sym)):
                 spec["type"] = str(val).strip("#<>")
         declared[pname] = spec
-    if name is None:
-        return None
-    return name, defaults, declared, body
+    # A lambda need not name itself -- `gaussian-blur2` is registered as
+    # `q7.u("gaussian-blur2", C2.f("(lambda ((type #<image>) ...)"))` with no
+    # `(name ...)` inside it -- and the registration is the better name
+    # anyway. Dropping these lost the operator, and with it every graph that
+    # stands on one: `sharpen` and `dehaze` both blend towards a
+    # `gaussian-blur2` that could not be resolved.
+    return name or "", defaults, declared, body
 
 
 def lambda_graphs(src: str, parser: GraphParser) -> dict[str, dict]:
@@ -870,7 +1095,11 @@ def lambda_graphs(src: str, parser: GraphParser) -> dict[str, dict]:
             continue
         # Names the body passes through rather than setting, so the node
         # records the binding instead of losing the argument.
-        bound = {k for k in declared if k not in defaults}
+        # Every knob the lambda declares, not only the ones without a
+        # default: a default says what the control starts at, not that the
+        # node should be wired to the number instead of the control.
+        bound = set(declared)
+        LAMBDA_PARAM_ORDER.setdefault(name, list(declared))
         node = _dsl_node(body, parser.known_ids, 0, defaults, bound)
         if node is not None:
             out[name] = {"id": name, "root": node, "declared": declared}
@@ -932,7 +1161,10 @@ def subclass_graphs(paths, parser: GraphParser, known: set) -> dict[str, dict]:
     for path in paths:
         src = path.read_text()
         for op in SUPER_NAME_RE.findall(src):
-            if op in known or op in out:
+            # Re-parsed on every pass rather than skipped once seen: the base
+            # class blends towards a `gaussian-blur2` that only a later pass
+            # can resolve, and the caller keeps whichever parse got furthest.
+            if op in out:
                 continue
             seen, parent = set(), parents.get(path.stem)
             while parent and parent not in seen:
@@ -1018,6 +1250,7 @@ def extract(src: str, parser: GraphParser) -> dict[str, dict]:
         # settings.
         parser.load_locals(src[:close + 1])
         declared = declared_from_k0(body, parser.registry) if parser.registry else {}
+        parser.knobs = set(declared)
         # The root node is the outermost C0558g0 in the registration.  A look
         # written as a DSL expression has no node tree at all; where both
         # appear the expression is a nested argument -- a palette, say -- and
@@ -1112,13 +1345,28 @@ def main() -> None:
             found.update(lambda_graphs(src, parser))
 
             for name, g in found.items():
-                if name not in graphs:
-                    g["source"] = str(path)
+                g["source"] = str(path)
+                # A later pass sees operators the earlier ones did not, and a
+                # node it could not resolve was dropped rather than kept as a
+                # hole -- so the first parse of a graph that stands on another
+                # graph is short, and only adding new names left it that way.
+                # `glass-marble` came out as its outermost `adjust` with the
+                # `lens-blur` and `globe` under it gone, and `schema4-preset`
+                # lost both of the graphs it blends. Keep whichever parse
+                # resolved more of the tree.
+                if name not in graphs or _resolved(g["root"]) > _resolved(
+                    graphs[name]["root"]
+                ):
                     graphs[name] = g
         # A base class may register a look under a name only its subclasses
         # know; that needs every file in hand, so it runs after the sweep.
         for name, g in subclass_graphs(files, parser, set(graphs)).items():
-            graphs.setdefault(name, g)
+            # Same as above: the first pass cannot see the operators a later
+            # one defines, so keep whichever parse resolved more.
+            if name not in graphs or _resolved(g["root"]) > _resolved(
+                graphs[name]["root"]
+            ):
+                graphs[name] = g
         parser.known_ids |= set(graphs)
         if len(graphs) == before:
             break

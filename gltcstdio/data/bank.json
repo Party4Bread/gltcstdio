@@ -125744,6 +125744,10 @@
        "modelTransform": {
         "bind": "transform2"
        },
+       "randomness_variability": 0.18917395851828842,
+       "randomness_seed": {
+        "bind": "randomSeed"
+       },
        "thickness": 0.13520538708395213,
        "color": {
         "bind": "color"
@@ -125763,8 +125767,8 @@
     }
    },
    "chain": [
-    "dichotomic-break",
-    "column-streak"
+    "column-streak",
+    "dichotomic-break"
    ],
    "params": [
     {
@@ -126144,7 +126148,11 @@
         }
        }
       },
-      "params": {}
+      "params": {
+       "radius": {
+        "bind": "blurRadius"
+       }
+      }
      }
     },
     "params": {
@@ -128235,7 +128243,9 @@
          }
         },
         "params": {
-         "intensity": 3.5,
+         "intensity": {
+          "bind": "innerIntensity"
+         },
          "distortion": 0.0,
          "modelTransform": [
           [
@@ -128258,18 +128268,26 @@
        }
       },
       "params": {
-       "intensity": 5.0,
+       "intensity": {
+        "bind": "outerIntensity"
+       },
        "distortion": 0.0,
-       "pixelation": -1.0,
+       "pixelation": {
+        "bind": "pixelation"
+       },
        "modelTransform": [
         [
-         0.0625,
+         {
+          "bind": "outerScale"
+         },
          0.0,
          -0.625
         ],
         [
          0.0,
-         0.0625,
+         {
+          "bind": "outerScale"
+         },
          -0.625
         ],
         [
@@ -128295,9 +128313,8 @@
     }
    },
    "chain": [
-    "polar",
     "hex-tiles-legacy",
-    "hex-tiles-legacy"
+    "polar"
    ],
    "params": [
     {
@@ -128457,7 +128474,9 @@
          },
          "contrast": {
           "bind": "contrast"
-         }
+         },
+         "vignette_intensity": 0.0,
+         "vignette_hardness": 0.30000000000000004
         }
        }
       },
@@ -128473,9 +128492,9 @@
     }
    },
    "chain": [
-    "sharpen",
-    "quadtone",
     "adjust",
+    "quadtone",
+    "sharpen",
     "soft-focus"
    ],
    "params": [
@@ -128836,17 +128855,23 @@
        }
       },
       "params": {
-       "intensity": 0.09,
+       "intensity": {
+        "bind": "intensity"
+       },
        "modelTransform": [
         [
          1.0,
          0.0,
-         0.0
+         {
+          "bind": "tx"
+         }
         ],
         [
          0.0,
          1.0,
-         0.0
+         {
+          "bind": "ty"
+         }
         ],
         [
          0.0,
@@ -128879,8 +128904,8 @@
     }
    },
    "chain": [
-    "simple-stretch",
-    "broken-glass"
+    "broken-glass",
+    "simple-stretch"
    ],
    "params": [
     {
@@ -130090,28 +130115,17 @@
    "backend": "graph",
    "graph": {
     "filter": "adjust",
-    "params": {
-     "brightness": 0.12,
-     "contrast": 1.12,
-     "vignette_intensity": 0.35,
-     "vignette_hardness": 0.3,
-     "vignette_color": [
-      0.0,
-      0.0,
-      0.0,
-      1.0
-     ]
-    },
     "inputs": {
      "source": {
       "filter": "lens-blur",
-      "params": {
-       "radius": 0.015,
-       "hardness": 0.35
-      },
       "inputs": {
        "source": {
         "filter": "globe",
+        "inputs": {
+         "source": {
+          "input": "source"
+         }
+        },
         "params": {
          "intensity": {
           "bind": "intensity"
@@ -130120,21 +130134,49 @@
           "bind": "modelTransform"
          },
          "power": 2.0
-        },
-        "inputs": {
-         "source": {
-          "input": "source"
-         }
         }
        }
+      },
+      "params": {
+       "radius": 0.015,
+       "hardness": 0.35
       }
      }
+    },
+    "params": {
+     "brightness": 0.12,
+     "contrast": 1.12,
+     "vignette_intensity": 0.35,
+     "vignette_color": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "vignette_hardness": 0.3,
+     "vignette_transform": [
+      [
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0
+      ]
+     ]
     }
    },
    "chain": [
     "adjust",
-    "lens-blur",
-    "globe"
+    "globe",
+    "lens-blur"
    ],
    "params": [
     {
@@ -131146,7 +131188,9 @@
         "params": {
          "saturation": {
           "bind": "saturation"
-         }
+         },
+         "vignette_intensity": 0.0,
+         "vignette_hardness": 0.30000000000000004
         }
        }
       },
@@ -131163,10 +131207,10 @@
     }
    },
    "chain": [
-    "grain",
-    "emphasize-palette",
     "adjust",
-    "dehaze"
+    "dehaze",
+    "emphasize-palette",
+    "grain"
    ],
    "params": [
     {
@@ -131481,12 +131525,14 @@
      }
     },
     "params": {
-     "tolerance": 0.30000000000000004
+     "tolerance": {
+      "bind": "tolerance"
+     }
     }
    },
    "chain": [
-    "select-by-color-difference",
-    "dichotomic-break"
+    "dichotomic-break",
+    "select-by-color-difference"
    ],
    "params": [
     {
@@ -131960,26 +132006,32 @@
    ],
    "graph": {
     "filter": "dehaze",
+    "inputs": {
+     "source": {
+      "filter": "gradient-displacement",
+      "inputs": {
+       "source1": {
+        "input": "source"
+       },
+       "source2": {
+        "input": "source"
+       }
+      },
+      "params": {
+       "modelTransform": {
+        "bind": "transform"
+       },
+       "intensity": {
+        "bind": "crunch"
+       }
+      }
+     }
+    },
     "params": {
      "intensity": {
       "bind": "contrast"
      },
      "blurRadius": 0.1
-    },
-    "inputs": {
-     "source": {
-      "filter": "gradient-displacement",
-      "params": {
-       "intensity": {
-        "bind": "crunch"
-       }
-      },
-      "inputs": {
-       "source1": {
-        "input": "source"
-       }
-      }
-     }
     }
    },
    "params": [
@@ -132019,7 +132071,34 @@
     "params": {
      "brightness": 0.05,
      "contrast": 1.07,
-     "saturation": -1.0
+     "saturation": -1.0,
+     "vignette_intensity": {
+      "bind": "intensity"
+     },
+     "vignette_hardness": 0.3,
+     "vignette_color": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "vignette_transform": [
+      [
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0
+      ]
+     ]
     }
    },
    "chain": [
@@ -132417,7 +132496,9 @@
        }
       },
       "params": {
-       "intensity": 3.5,
+       "intensity": {
+        "bind": "innerIntensity"
+       },
        "distortion": 0.0,
        "modelTransform": [
         [
@@ -132453,7 +132534,6 @@
     }
    },
    "chain": [
-    "hex-tiles-legacy",
     "hex-tiles-legacy"
    ],
    "params": [
@@ -133480,13 +133560,17 @@
        "iterations": 4,
        "modelTransform": [
         [
-         0.05,
+         {
+          "bind": "scale"
+         },
          0.0,
          0.0
         ],
         [
          0.0,
-         0.05,
+         {
+          "bind": "scale"
+         },
          0.0
         ],
         [
@@ -133499,12 +133583,14 @@
      }
     },
     "params": {
-     "tolerance": 0.30000000000000004
+     "tolerance": {
+      "bind": "tolerance"
+     }
     }
    },
    "chain": [
-    "select-by-color-difference",
-    "dichotomic-streak"
+    "dichotomic-streak",
+    "select-by-color-difference"
    ],
    "params": [
     {
@@ -133699,15 +133785,22 @@
       },
       "params": {
        "perspective": 1.1872418321266793,
-       "viewAngle": 0.2
+       "viewAngle": {
+        "bind": "viewAngle"
+       }
       }
      }
     },
-    "params": {}
+    "params": {
+     "vignette_intensity": {
+      "bind": "vignetteIntensity"
+     },
+     "vignette_hardness": 0.4
+    }
    },
    "chain": [
-    "vignette",
-    "perspective-floor-gl"
+    "perspective-floor-gl",
+    "vignette"
    ],
    "params": [
     {
@@ -135813,14 +135906,18 @@
          "randomSeed": 0.0,
          "modelTransform": [
           [
-           0.1,
+           2.0000000000000002e+29,
            0.0,
-           0.0
+           {
+            "bind": "tx"
+           }
           ],
           [
            0.0,
-           0.1,
-           0.0
+           2.0000000000000002e+29,
+           {
+            "bind": "ty"
+           }
           ],
           [
            0.0,
@@ -135842,14 +135939,22 @@
      "scatter": 0.0,
      "modelTransform": [
       [
-       1.0,
+       {
+        "bind": "scale"
+       },
        0.0,
-       0.0
+       {
+        "bind": "tx"
+       }
       ],
       [
        0.0,
-       1.0,
-       0.0
+       {
+        "bind": "scale"
+       },
+       {
+        "bind": "ty"
+       }
       ],
       [
        0.0,
@@ -135860,9 +135965,9 @@
     }
    },
    "chain": [
+    "block-corrupt-5",
     "multi-shift",
-    "rgb-offset-for-glitch-lab-gl",
-    "block-corrupt-5"
+    "rgb-offset-for-glitch-lab-gl"
    ],
    "params": [
     {
@@ -137527,12 +137632,18 @@
          "intensity": 0.05,
          "randomSeed": 0.0
         }
+       },
+       "palette": {
+        "filter": "color-list-to-palette-image",
+        "inputs": {
+         "source": {
+          "input": "source"
+         }
+        },
+        "params": {}
        }
       },
       "params": {
-       "palette": {
-        "expr": "(color-list-to-palette-image (make-color-list (rgba 0.33333333 1.0 1.0 1.0) (rgba 1.0 1.0 0.0 1.0) (rgba 1.0 0.33333333 1.0 1.0)))"
-       },
        "intensity": 0.5,
        "saturation": 0.5,
        "hardness": 0.35,
@@ -137548,9 +137659,10 @@
     }
    },
    "chain": [
-    "stripe-displacement-gl",
+    "color-list-to-palette-image",
     "emphasize-palette",
-    "random-color-dispersion"
+    "random-color-dispersion",
+    "stripe-displacement-gl"
    ],
    "params": [
     {
@@ -138694,20 +138806,25 @@
       "params": {
        "mode": 1,
        "intensity": 0.1,
-       "angle": 0.0,
+       "angle": {
+        "bind": "angle"
+       },
        "rezolution": 600
       }
      }
     },
     "params": {
      "mode": 1,
-     "intensity": 0.15,
-     "angle": 1.5707963267948966,
+     "intensity": {
+      "bind": "intensity"
+     },
+     "angle": {
+      "bind": "angle"
+     },
      "rezolution": 600
     }
    },
    "chain": [
-    "pixel-sort",
     "pixel-sort"
    ],
    "params": [
@@ -139314,12 +139431,16 @@
         [
          2.5,
          0.0,
-         0.0
+         {
+          "bind": "tx"
+         }
         ],
         [
          0.0,
          2.5,
-         0.0
+         {
+          "bind": "ty"
+         }
         ],
         [
          0.0,
@@ -139335,14 +139456,22 @@
      "locusMode": 2,
      "locusTransform": [
       [
-       1.0,
+       {
+        "bind": "locusScale"
+       },
        0.0,
-       0.0
+       {
+        "bind": "tx"
+       }
       ],
       [
        0.0,
-       1.0,
-       0.0
+       {
+        "bind": "locusScale"
+       },
+       {
+        "bind": "ty"
+       }
       ],
       [
        0.0,
@@ -139353,8 +139482,8 @@
     }
    },
    "chain": [
-    "locusBlend",
-    "iterated-ripples-gl"
+    "iterated-ripples-gl",
+    "locusBlend"
    ],
    "params": [
     {
@@ -140373,12 +140502,16 @@
         [
          1.0,
          0.0,
-         0.0
+         {
+          "bind": "tx"
+         }
         ],
         [
          0.0,
          1.0,
-         0.0
+         {
+          "bind": "ty"
+         }
         ],
         [
          0.0,
@@ -142428,12 +142561,18 @@
     "inputs": {
      "source": {
       "input": "source"
+     },
+     "palette": {
+      "filter": "color-list-to-palette-image",
+      "inputs": {
+       "source": {
+        "input": "source"
+       }
+      },
+      "params": {}
      }
     },
     "params": {
-     "palette": {
-      "expr": "(color-list-to-palette-image (make-color-list (rgba 0.0 0.0 0.0 1.0) (rgba 0.9373 0.1098 0.1451 1.0) (rgba 0.0784 0.2941 0.6157 1.0) (rgba 0.9765 0.9294 0.0588 1.0) (rgba 1.0 1.0 1.0 1.0)))"
-     },
      "randomSeed": {
       "bind": "randomSeed"
      },
@@ -142443,13 +142582,17 @@
      },
      "modelTransform": [
       [
-       1.0,
+       {
+        "bind": "scale"
+       },
        0.0,
        0.0
       ],
       [
        0.0,
-       1.0,
+       {
+        "bind": "scale"
+       },
        0.0
       ],
       [
@@ -142461,6 +142604,7 @@
     }
    },
    "chain": [
+    "color-list-to-palette-image",
     "pixelatedichotomicgl-locus"
    ],
    "params": [
@@ -142555,6 +142699,15 @@
    "graph": {
     "filter": "emphasize-palette",
     "inputs": {
+     "palette": {
+      "filter": "color-list-to-palette-image",
+      "inputs": {
+       "source": {
+        "input": "source"
+       }
+      },
+      "params": {}
+     },
      "source": {
       "filter": "channelMultiplier",
       "inputs": {
@@ -142571,15 +142724,9 @@
        "channels_saturation": 3.0,
        "channels_luminance": 3.0
       }
-     },
-     "palette__texelFetch": {
-      "input": "source"
      }
     },
     "params": {
-     "palette": {
-      "expr": "(color-list-to-palette-image (make-color-list   (rgba 1.0        0.0 0.75686275 1.0)   (rgba 0.58823529 0.0 1.0        1.0)   (rgba 0.28627451 0.0 1.0        1.0)   (rgba 0.0 0.72156863 1.0        1.0)   (rgba 0.0 1.0        0.97647059 1.0)))"
-     },
      "intensity": {
       "bind": "intensity"
      },
@@ -142589,8 +142736,9 @@
     }
    },
    "chain": [
-    "emphasize-palette",
-    "channelMultiplier"
+    "channelMultiplier",
+    "color-list-to-palette-image",
+    "emphasize-palette"
    ],
    "params": [
     {
@@ -143268,12 +143416,16 @@
         [
          2.0,
          0.0,
-         0.0
+         {
+          "bind": "tx"
+         }
         ],
         [
          0.0,
          2.0,
-         0.0
+         {
+          "bind": "ty"
+         }
         ],
         [
          0.0,
@@ -143289,13 +143441,17 @@
      "locusMode": 6,
      "locusTransform": [
       [
-       1.0,
+       {
+        "bind": "locusScale"
+       },
        0.0,
        0.0
       ],
       [
        0.0,
-       1.0,
+       {
+        "bind": "locusScale"
+       },
        0.0
       ],
       [
@@ -143307,8 +143463,8 @@
     }
    },
    "chain": [
-    "locusBlend",
-    "iterated-ripples-gl"
+    "iterated-ripples-gl",
+    "locusBlend"
    ],
    "params": [
     {
@@ -143481,13 +143637,17 @@
      ],
      "modelTransform": [
       [
-       1.0,
+       {
+        "bind": "scale"
+       },
        0.0,
        0.0
       ],
       [
        0.0,
-       1.0,
+       {
+        "bind": "scale"
+       },
        0.0
       ],
       [
@@ -145487,13 +145647,30 @@
     "filter": "multi-shift",
     "inputs": {
      "source": {
-      "input": "intensity"
+      "filter": "emphasize-palette",
+      "inputs": {
+       "source": {
+        "input": "source"
+       },
+       "palette": {
+        "filter": "color-list-to-palette-image",
+        "inputs": {
+         "source": {
+          "input": "source"
+         }
+        },
+        "params": {}
+       }
+      },
+      "params": {
+       "intensity": 1.0,
+       "tolerance": 0.35,
+       "hardness": 0.5,
+       "saturation": 0.5
+      }
      }
     },
     "params": {
-     "source": {
-      "expr": "(emphasize-palette source   :palette (color-list-to-palette-image (make-color-list     (rgba 0.98823529 0.58431372 0.16862745 1.0)     (rgba 0.94509804 0.34509804 0.64313725 1.0)     (rgba 0.06666667 0.45490196 0.62745098 1.0)     (rgba 0.36470588 0.87058824 0.60000000 1.0)))   :intensity 1.0   :tolerance 0.35   :hardness 0.5   :saturation 0.5)"
-     },
      "mode": 3.0,
      "intensity": {
       "bind": "intensity"
@@ -145519,6 +145696,8 @@
     }
    },
    "chain": [
+    "color-list-to-palette-image",
+    "emphasize-palette",
     "multi-shift"
    ],
    "params": [
@@ -145615,9 +145794,13 @@
       "params": {
        "count": 2,
        "variability": 0.0,
-       "smoothing": 0.05,
+       "smoothing": {
+        "bind": "smoothing"
+       },
        "thickness": 0.12,
-       "angle": 0.0,
+       "angle": {
+        "bind": "angle"
+       },
        "blend": 0.2,
        "color1": [
         0.0,
@@ -145855,18 +146038,24 @@
        }
       },
       "params": {
-       "intensity": 0.107,
+       "intensity": {
+        "bind": "intensity"
+       },
        "scatter": 0.0,
        "modelTransform": [
         [
          0.1,
          0.0,
-         0.0
+         {
+          "bind": "tx"
+         }
         ],
         [
          0.0,
          0.1,
-         0.0
+         {
+          "bind": "ty"
+         }
         ],
         [
          0.0,
@@ -145900,8 +146089,8 @@
     }
    },
    "chain": [
-    "scanlines-gl",
     "multisine-offset-gl",
+    "scanlines-gl",
     "vhs-text"
    ],
    "params": [
@@ -146026,12 +146215,16 @@
         [
          0.2857143,
          0.0,
-         0.0
+         {
+          "bind": "tx"
+         }
         ],
         [
          0.0,
          0.2857143,
-         0.0
+         {
+          "bind": "ty"
+         }
         ],
         [
          0.0,
@@ -146043,7 +146236,9 @@
      }
     },
     "params": {
-     "intensity": 60.0,
+     "intensity": {
+      "bind": "intensity"
+     },
      "rezolution": 70,
      "sourceColor": [
       0.3764706,
@@ -146061,8 +146256,8 @@
     }
    },
    "chain": [
-    "height-map-pixels-gl",
-    "circle-gradient"
+    "circle-gradient",
+    "height-map-pixels-gl"
    ],
    "params": [
     {
@@ -146500,6 +146695,39 @@
    "graph": {
     "filter": "emphasize-palette",
     "inputs": {
+     "source": {
+      "filter": "lens-blur",
+      "inputs": {
+       "source": {
+        "filter": "bokeh-lights",
+        "inputs": {
+         "source": {
+          "filter": "adjust",
+          "inputs": {
+           "source": {
+            "input": "source"
+           }
+          },
+          "params": {
+           "vignette_intensity": 0.15093437781700725,
+           "vignette_hardness": 0.30000000000000004
+          }
+         }
+        },
+        "params": {
+         "vignetting": 0.4072936307466946,
+         "colorVariability": 0.8983849158653844,
+         "modelTransform": {
+          "bind": "modelTransform"
+         }
+        }
+       }
+      },
+      "params": {
+       "radius": 0.022107872596153832,
+       "hardness": 0.20724022498497602
+      }
+     },
      "palette": {
       "filter": "color-list-to-palette-image",
       "inputs": {
@@ -146515,8 +146743,11 @@
     }
    },
    "chain": [
+    "adjust",
+    "bokeh-lights",
+    "color-list-to-palette-image",
     "emphasize-palette",
-    "color-list-to-palette-image"
+    "lens-blur"
    ],
    "params": [
     {
@@ -146696,7 +146927,9 @@
           "bind": "brightness"
          },
          "luminosity": 0.0,
-         "gamma": 0.0
+         "gamma": 0.0,
+         "vignette_intensity": 0.0,
+         "vignette_hardness": 0.30000000000000004
         }
        }
       },
@@ -146715,9 +146948,9 @@
     }
    },
    "chain": [
-    "gradient-strokes",
-    "emboss",
     "adjust",
+    "emboss",
+    "gradient-strokes",
     "grain"
    ],
    "params": [
@@ -146889,14 +147122,20 @@
              1.0
             ]
            ],
-           "shapeAspectRatio": 1.0
+           "shapeAspectRatio": {
+            "bind": "shapeAspectRatio"
+           }
           }
          }
         },
         "params": {
          "mode": 9,
-         "intensity": 10.0,
-         "randomSeed": 0.0,
+         "intensity": {
+          "bind": "intensity"
+         },
+         "randomSeed": {
+          "bind": "randomSeed"
+         },
          "color": [
           0.0,
           0.0,
@@ -146921,8 +147160,12 @@
            1.0
           ]
          ],
-         "variability": 1.0,
-         "iterations": 1
+         "variability": {
+          "bind": "variability"
+         },
+         "iterations": {
+          "bind": "iterations"
+         }
         }
        },
        "gradient": {
@@ -146970,11 +147213,11 @@
     }
    },
    "chain": [
-    "overlay",
-    "gradient-map",
     "dichotomic-break",
-    "rounded-rectangle-gradient",
-    "hatch"
+    "gradient-map",
+    "hatch",
+    "overlay",
+    "rounded-rectangle-gradient"
    ],
    "params": [
     {
@@ -147192,18 +147435,32 @@
          }
         },
         "params": {
-         "detail": 4,
-         "randomSeed": -1.7475222753099178,
-         "aspectRatio": 0.75
+         "detail": {
+          "bind": "detail"
+         },
+         "randomSeed": {
+          "bind": "randomSeed"
+         },
+         "aspectRatio": {
+          "bind": "aspectRatio"
+         }
         }
        }
       },
       "params": {
        "mode": 4,
-       "intensity": -100.0,
-       "variability": 0.7967715618038971,
-       "iterations": 1,
-       "randomSeed": -1.7475222753099178,
+       "intensity": {
+        "bind": "intensity"
+       },
+       "variability": {
+        "bind": "variability"
+       },
+       "iterations": {
+        "bind": "iterations"
+       },
+       "randomSeed": {
+        "bind": "randomSeed"
+       },
        "modelTransform": [
         [
          0.06424948,
@@ -147225,7 +147482,9 @@
      }
     },
     "params": {
-     "aspectRatio": 0.75,
+     "aspectRatio": {
+      "bind": "aspectRatio"
+     },
      "modelTransform": [
       [
        0.9815291,
@@ -147246,8 +147505,8 @@
     }
    },
    "chain": [
-    "mirror",
     "dichotomic-streak",
+    "mirror",
     "random-cells"
    ],
    "params": [
@@ -147375,7 +147634,9 @@
               0.0,
               1.0
              ],
-             "aspectRatio": 0.75
+             "aspectRatio": {
+              "bind": "aspectRatio"
+             }
             }
            }
           },
@@ -147383,8 +147644,12 @@
            "color1": {
             "bind": "pointerColor"
            },
-           "size": 0.7939518699961261,
-           "thickness": 0.3005663658961775,
+           "size": {
+            "bind": "pointerSize"
+           },
+           "thickness": {
+            "bind": "pointerThickness"
+           },
            "segment": {
             "bind": "transform1"
            }
@@ -147396,8 +147661,12 @@
           "bind": "pointerColor"
          },
          "number": 2,
-         "size": 0.7939518699961261,
-         "thickness": 0.3005663658961775,
+         "size": {
+          "bind": "pointerSize"
+         },
+         "thickness": {
+          "bind": "pointerThickness"
+         },
          "segment": {
           "bind": "transform2"
          }
@@ -147409,8 +147678,12 @@
         "bind": "pointerColor"
        },
        "number": 3,
-       "size": 0.7939518699961261,
-       "thickness": 0.3005663658961775,
+       "size": {
+        "bind": "pointerSize"
+       },
+       "thickness": {
+        "bind": "pointerThickness"
+       },
        "segment": {
         "bind": "transform3"
        }
@@ -147462,11 +147735,9 @@
     }
    },
    "chain": [
+    "flat",
     "graph",
-    "pointer",
-    "pointer",
-    "pointer",
-    "flat"
+    "pointer"
    ],
    "params": [
     {
@@ -147653,12 +147924,62 @@
       "filter": "lum-grad",
       "inputs": {
        "source": {
-        "input": "source"
+        "filter": "schema4-boxes",
+        "inputs": {
+         "source": {
+          "input": "source"
+         }
+        },
+        "params": {
+         "aspectRatio": {
+          "bind": "aspectRatio"
+         },
+         "detail": {
+          "bind": "detail"
+         },
+         "randomSeed": {
+          "bind": "randomSeed"
+         },
+         "intensity": {
+          "bind": "intensity"
+         }
+        }
        }
       },
       "params": {
        "mode": 0.32366388494318177,
        "intensity": 0.15
+      }
+     },
+     "source2": {
+      "filter": "schema4-grid",
+      "inputs": {
+       "source": {
+        "input": "source"
+       }
+      },
+      "params": {
+       "aspectRatio": {
+        "bind": "aspectRatio"
+       },
+       "gridColor": {
+        "bind": "gridColor"
+       },
+       "pointerColor": {
+        "bind": "pointerColor"
+       },
+       "pointerThickness": {
+        "bind": "pointerThickness"
+       },
+       "transform1": {
+        "bind": "transform1"
+       },
+       "transform2": {
+        "bind": "transform2"
+       },
+       "transform3": {
+        "bind": "transform3"
+       }
       }
      },
      "mask": {
@@ -147675,7 +147996,9 @@
         1.0,
         1.0
        ],
-       "aspectRatio": 0.75
+       "aspectRatio": {
+        "bind": "aspectRatio"
+       }
       }
      }
     },
@@ -147685,8 +148008,10 @@
    },
    "chain": [
     "blend-with-mask",
+    "flat",
     "lum-grad",
-    "flat"
+    "schema4-boxes",
+    "schema4-grid"
    ],
    "params": [
     {
@@ -147830,8 +148155,12 @@
         },
         "params": {
          "mode": 1,
-         "levels": 5,
-         "threshold": 0.25,
+         "levels": {
+          "bind": "levels"
+         },
+         "threshold": {
+          "bind": "subdivide"
+         },
          "precizion": 4,
          "modelTransform": {
           "bind": "mosaicTransform"
@@ -147840,8 +148169,40 @@
        }
       },
       "params": {
-       "mode": 0.32366388494318177,
-       "intensity": 0.15
+       "mode": {
+        "bind": "lumMode"
+       },
+       "intensity": {
+        "bind": "lumIntensity"
+       }
+      }
+     },
+     "source2": {
+      "filter": "schema4-grid",
+      "inputs": {
+       "source": {
+        "input": "source"
+       }
+      },
+      "params": {
+       "gridColor": {
+        "bind": "gridColor"
+       },
+       "pointerColor": {
+        "bind": "pointerColor"
+       },
+       "pointerThickness": {
+        "bind": "pointerThickness"
+       },
+       "transform1": {
+        "bind": "transform1"
+       },
+       "transform2": {
+        "bind": "transform2"
+       },
+       "transform3": {
+        "bind": "transform3"
+       }
       }
      },
      "mask": {
@@ -147867,10 +148228,11 @@
    },
    "chain": [
     "blend-with-mask",
+    "flat",
     "lum-grad",
-    "square-mosaic",
     "ring-threshold",
-    "flat"
+    "schema4-grid",
+    "square-mosaic"
    ],
    "params": [
     {
@@ -148078,15 +148440,17 @@
        "modelTransform": {
         "bind": "modelTransform"
        },
-       "randomSeed": 0.0
+       "randomSeed": {
+        "bind": "randomSeed"
+       }
       }
      }
     },
     "params": {}
    },
    "chain": [
-    "lum-grad",
     "defect",
+    "lum-grad",
     "rosaces2"
    ],
    "params": [
@@ -148367,7 +148731,17 @@
         "filter": "flower",
         "inputs": {
          "source": {
-          "input": "source"
+          "filter": "soft-focus",
+          "inputs": {
+           "source": {
+            "input": "source"
+           }
+          },
+          "params": {
+           "intensity": {
+            "bind": "soft-focusIntensity"
+           }
+          }
          }
         },
         "params": {
@@ -148395,8 +148769,9 @@
    },
    "chain": [
     "bump",
+    "flower",
     "globe",
-    "flower"
+    "soft-focus"
    ],
    "params": [
     {
@@ -148627,7 +149002,11 @@
         "input": "source"
        }
       },
-      "params": {}
+      "params": {
+       "radius": {
+        "bind": "blurRadius"
+       }
+      }
      },
      "mask": {
       "filter": "circle-gradient",
@@ -148666,8 +149045,8 @@
    },
    "chain": [
     "blend-with-mask",
-    "gaussian-blur2",
-    "circle-gradient"
+    "circle-gradient",
+    "gaussian-blur2"
    ],
    "params": [
     {
@@ -150367,7 +150746,32 @@
      },
      "gamma": {
       "bind": "gamma"
-     }
+     },
+     "vignette_intensity": 0.0,
+     "vignette_color": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "vignette_hardness": 0.3,
+     "vignette_transform": [
+      [
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0
+      ]
+     ]
     }
    },
    "chain": [
@@ -151095,13 +151499,16 @@
      }
     },
     "params": {
+     "intensity": {
+      "bind": "wavesIntensity",
+      "neg": true
+     },
      "modelTransform": {
       "bind": "modelTransform"
      }
     }
    },
    "chain": [
-    "waves",
     "pixel-sort",
     "waves"
    ],

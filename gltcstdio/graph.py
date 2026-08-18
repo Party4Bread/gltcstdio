@@ -72,7 +72,7 @@ def render_graph(
             if overrides and v["bind"] in overrides:
                 params[k] = _signed(overrides[v["bind"]], negated, k)
             continue
-        params[k] = v
+        params[k] = _fill_holes(v, overrides)
 
     # An override reaches only the nodes its knob is bound to.  Two stages can
     # set the same name to different values, and delivering by name alone lets
@@ -94,6 +94,24 @@ def render_graph(
                 params[k] = _signed(v, negated, k)
 
     return render_node(node["filter"], primary, params, inputs)
+
+
+def _fill_holes(value, overrides):
+    """A structured value with its open knobs filled from the caller's.
+
+    A literal may have controls left open inside it: the app sets
+    `preset-focus`'s locus with `(mat3 (vec3 locusScale 0 0) (vec3 0
+    locusScale 0) (vec3 tx ty 1))`, so three of the nine cells are knobs.
+    """
+    if isinstance(value, dict):
+        knob = value.get("bind")
+        if knob is None:
+            return value
+        given = (overrides or {}).get(knob, 0.0)
+        return -given if value.get("neg") and isinstance(given, (int, float)) else given
+    if isinstance(value, list):
+        return [_fill_holes(v, overrides) for v in value]
+    return value
 
 
 def _signed(value, negated: set, name: str):

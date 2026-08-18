@@ -517,53 +517,66 @@ def unsharp_mask_specs() -> dict:
     }
 
 
-def glass_marble_spec(existing: dict) -> dict:
-    """`glass-marble` as `GlassMarble.java` registers it.
+def adopt_richer_graphs(filters: dict, graphs: dict) -> int:
+    """Take the extractor's chain where it resolves more of one than is stored.
 
-        (adjust :source
-            (lens-blur :source
-                (globe :source source :intensity intensity
-                       :modelTransform modelTransform :power 2.0)
-                :radius 0.015 :hardness 0.35)
-            :brightness 0.12 :contrast 1.12
-            :vignette (make-vignette :intensity 0.35 :color (rgba 0 0 0 1)
-                                     :hardness 0.3 :transform (mat3 ...)))
-
-    The extraction kept only the outermost stage, so a glass marble was a
-    brightness and contrast tweak with nothing to make it glassy, and the
-    `intensity` and `modelTransform` it declares reached nothing at all.
+    A graph that stands on another graph could only be parsed once the one it
+    stands on had been seen, and the pass that saw it did not replace what the
+    earlier pass had written.  `glass-marble` was stored as its outermost
+    `adjust` alone, `schema4-preset` had lost both of the graphs it blends,
+    and `reverie` most of its chain.  With that fixed in
+    `tools/extract_graphs.py`, this brings the fuller parse across.
     """
-    f = dict(existing)
-    f["backend"] = "graph"
-    f["chain"] = ["adjust", "lens-blur", "globe"]
-    f["graph"] = {
-        "filter": "adjust",
-        "params": {
-            "brightness": 0.12,
-            "contrast": 1.12,
-            "vignette_intensity": 0.35,
-            "vignette_hardness": 0.3,
-            "vignette_color": [0.0, 0.0, 0.0, 1.0],
-        },
-        "inputs": {
-            "source": {
-                "filter": "lens-blur",
-                "params": {"radius": 0.015, "hardness": 0.35},
-                "inputs": {
-                    "source": {
-                        "filter": "globe",
-                        "params": {
-                            "intensity": {"bind": "intensity"},
-                            "modelTransform": {"bind": "modelTransform"},
-                            "power": 2.0,
-                        },
-                        "inputs": {"source": {"input": "source"}},
-                    }
-                },
-            }
-        },
-    }
-    return f
+    def resolved(node):
+        if not isinstance(node, dict) or "filter" not in node:
+            return 0
+        return 1 + sum(resolved(c) for c in (node.get("inputs") or {}).values())
+
+    def names(node, acc):
+        if isinstance(node, dict) and "filter" in node:
+            acc.add(node["filter"])
+            for c in (node.get("inputs") or {}).values():
+                names(c, acc)
+        return acc
+
+    changed = 0
+    for fid, f in filters.items():
+        stored = f.get("graph")
+        fresh = (graphs.get(fid) or {}).get("root")
+        if not stored or not fresh:
+            continue
+        def settings(node):
+            if not isinstance(node, dict) or "filter" not in node:
+                return 0
+            return len(node.get("params") or {}) + sum(
+                settings(c) for c in (node.get("inputs") or {}).values()
+            )
+
+        def bindings(node):
+            # Knobs wired to a control rather than frozen at a number.
+            if not isinstance(node, dict) or "filter" not in node:
+                return 0
+            def holes(v):
+                # A knob can sit inside a value as well as be one: three of
+                # the nine cells of `preset-focus`'s locus matrix are knobs.
+                if isinstance(v, dict):
+                    return 1 if "bind" in v else 0
+                if isinstance(v, list):
+                    return sum(holes(x) for x in v)
+                return 0
+
+            here = sum(holes(v) for v in (node.get("params") or {}).values())
+            return here + sum(bindings(c) for c in (node.get("inputs") or {}).values())
+
+        def score(node):
+            return resolved(node), settings(node), bindings(node)
+
+        if score(fresh) <= score(stored):
+            continue
+        f["graph"] = fresh
+        f["chain"] = sorted(names(fresh, set()))
+        changed += 1
+    return changed
 
 
 CALL_SITE_RE = re.compile(r'\.[QN]\(\s*"\((?P<id>[a-z][a-z0-9-]*)\s+(?P<args>:[^"]*?)"\s*,')
@@ -605,15 +618,13 @@ def call_site_defaults(filters: dict, sources: Path) -> int:
 
     The extraction kept the declaration and dropped the call, so these opened
     at whatever the inherited knob happened to default to.  Where that is a
-    neutral value the filter does nothing at all: `triangle-op-art` sat at
+    neutral value the filter does little or nothing: `triangle-op-art` sat at
     intensity 0 against the app's 5, `star-kaleidoscope` at 0 against 1.11,
-    `etched-circles` at thickness 0 against 0.12.  `white-infinite` was the
-    one that made this visible -- it drew nothing once it reached the real
-    shader, because the transform it is called with had been lost.
+    `etched-circles` at thickness 0 against 0.12.
 
-    Only scalars and short vectors are taken, and only where the shape
-    matches what is declared; a matrix wants the column-to-row turn that
-    `mat4` needs and is left to the entry that knows it.
+    Only scalars and short vectors are taken, and only where the shape matches
+    what is declared; a matrix wants the column-to-row turn that `mat4` needs
+    and is left to the entry that knows it.
     """
     def numbers(t):
         return [float(x) for x in re.findall(r"-?\d+\.?\d*(?:[eE][-+]?\d+)?", t)]
@@ -643,9 +654,11 @@ def call_site_defaults(filters: dict, sources: Path) -> int:
                     continue
                 if len(want) > 4:
                     continue  # a matrix: see the docstring
-                p["default"] = want[0] if len(want) == 1 and not isinstance(
-                    p["default"], list
-                ) else want
+                p["default"] = (
+                    want[0]
+                    if len(want) == 1 and not isinstance(p["default"], list)
+                    else want
+                )
                 changed += 1
     return changed
 
@@ -969,12 +982,9 @@ def main() -> None:
                     [0.0, 0.0, 0.0, 1.0],
                 ]
 
-    n_calls = call_site_defaults(filters, Path("work/decompiled/sources"))
-    if n_calls:
-        print(f"  {n_calls} defaults taken from the call the app makes")
-
-    if "glass-marble" in filters:
-        filters["glass-marble"] = glass_marble_spec(filters["glass-marble"])
+    n_richer = adopt_richer_graphs(filters, graphs)
+    if n_richer:
+        print(f"  {n_richer} graphs took the fuller parse of their chain")
 
     prefer_gl.add("mobius-torus")
     if prefer_gl:
@@ -1009,6 +1019,13 @@ def main() -> None:
             if p["name"] == "intensity" and p.get("min", 0.0) == 0.0:
                 p["min"] = -1.0
         print("  sharpen, dehaze and metal built from the app's own lambdas")
+
+    # Last, so it corrects the entries written above as well: `metal`'s
+    # contrast is 0.35 where the filter it inherits from defaults to 0.6.
+    n_calls = call_site_defaults(filters, Path("work/decompiled/sources"))
+    if n_calls:
+        print(f"  {n_calls} defaults taken from the call the app makes")
+
 
     # Curated looks: several filters chained, rather than one shader.
     graphs_path = Path("work/graphs.json")

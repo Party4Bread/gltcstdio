@@ -126,6 +126,38 @@ impl Renderer {
     }
 }
 
+/// A structured value with its open knobs filled from the caller's.
+///
+/// Anything that is not a `{"bind": ...}` is carried through untouched, so a
+/// plain literal costs one walk and comes back as it was.
+fn fill_holes(raw: &serde_json::Value, outer: &Params) -> serde_json::Value {
+    match raw {
+        serde_json::Value::Object(map) => {
+            let Some(serde_json::Value::String(knob)) = map.get("bind") else {
+                return raw.clone();
+            };
+            let Some(given) = outer.get(knob) else {
+                // Nothing supplied it, so the cell keeps whatever a caller
+                // would have seen: the value resolution above fills every
+                // declared knob, so this is a name no filter declares.
+                return serde_json::Value::from(0.0);
+            };
+            let flipped;
+            let value = if map.get("neg").and_then(serde_json::Value::as_bool) == Some(true) {
+                flipped = negate(given);
+                &flipped
+            } else {
+                given
+            };
+            to_json(value)
+        }
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items.iter().map(|item| fill_holes(item, outer)).collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
 /// A value with its sign flipped, for a knob the graph forwards negated.
 fn negate(value: &Value) -> Value {
     match value {
@@ -169,7 +201,11 @@ fn node_params(node: &FilterNode, outer: &Params, bindings: &Bindings, path: &Pa
                 }
             }
             Node::Value(raw) => {
-                params.insert(name.clone(), from_json(raw));
+                // A literal may have knobs left open inside it: the app sets
+                // `preset-focus`'s locus with `(mat3 (vec3 locusScale 0 0)
+                // (vec3 0 locusScale 0) (vec3 tx ty 1))`, so three of the
+                // nine cells are controls rather than numbers.
+                params.insert(name.clone(), from_json(&fill_holes(raw, outer)));
             }
             Node::Input { input } => {
                 params.insert(name.clone(), Value::Str(input.clone()));

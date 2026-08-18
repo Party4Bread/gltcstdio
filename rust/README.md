@@ -237,6 +237,52 @@ ignored the transform entirely. `mat4` takes columns where the bank stores
 rows, so the -1 belongs at [2][3] -- which is where `mobius-torus`'s own
 presets keep theirs.
 
+### Fixing the extraction rather than the entries
+
+The faults above were symptoms; six of them were one bug each in
+`tools/extract_graphs.py`, and fixing those repaired filters no audit had
+flagged. Every one is checked by re-reading the app's own registration.
+
+- **A graph parsed before the graph it stands on was never re-parsed.** The
+  extractor loops until nothing new resolves, so a later pass sees operators
+  the earlier ones did not -- but it only ever *added* names, so the short
+  first parse stuck. `glass-marble` was its outermost `adjust` alone,
+  `schema4-preset` had lost both of the graphs it blends, `reverie` most of
+  its chain. Now the fuller parse wins.
+- **A lambda that does not name itself was thrown away.** `gaussian-blur2` is
+  registered as `q7.u("gaussian-blur2", C2.f("(lambda ((type #<image>) ...)"))`
+  with no `(name ...)` inside it, and `parse_lambda` required one. Losing the
+  operator lost every graph that stands on it.
+- **A knob with a default was baked in as that number.** The defaults were
+  consulted before the bindings, so a declared knob that had one was wired to
+  the literal instead of the control -- `disco-planet` passes `:intensity
+  innerIntensity` and its slider moved nothing. A default says where a control
+  starts, not that the node should be nailed to it.
+- **Knobs inside an expression were replaced by guesses.** `symbol_value`
+  answers for any name it is asked about, 1.0 for one that reads like a scale
+  and 0.0 otherwise, so `preset-focus`'s `(mat3 (vec3 locusScale 0 0) (vec3 0
+  locusScale 0) (vec3 tx ty 1))` came out the identity and every canvas handle
+  in that family moved nothing. A knob now keeps its place as a hole the
+  renderer fills, which is what `{"bind": ...}` inside a value means.
+- **A struct argument was dropped whole.** `:vignette (make-vignette
+  :intensity 0.35 :hardness 0.3)` failed to evaluate and took four parameters
+  with it. It is now taken apart into the names the target declares --
+  `vignette_intensity` for `adjust`, `intensity` for `vignette`.
+- **A filter written as an expression was stored as text.** `preset-mondrian`
+  builds its palette with `(color-list-to-palette-image (make-color-list
+  ...))` and `palette` is an image port; evaluated as a number it failed and
+  was kept as `{"expr": ...}`. Four of those are gone, and a filter-valued
+  argument now goes to the input it feeds, since a filter can only be an
+  image.
+
+A positional knob is still left alone where the operator is a shader -- the
+app's argument order is its own and does not follow the GLSL signature -- but
+a lambda writes its order down, so `(gaussian-blur2 source blurRadius)` now
+binds `radius`, which is what `soft-focus` turns.
+
+Between them these took the knobs that are both measurably dead and
+statically unreachable from 45 across 22 filters to 10 across 7.
+
 ### What else the extraction had lost
 
 `white-infinite` drawing nothing was not a one-off, so the same shapes were
@@ -253,23 +299,27 @@ decompiled source rather than guessed at.
 - **Stages dropped from a chain.** `glass-marble` is
   `adjust(lens-blur(globe(source)))` and had been extracted as the `adjust`
   alone: a glass marble that was a brightness and contrast tweak, with the
-  `intensity` and `modelTransform` it declares reaching nothing. Two other
-  filters lose stages the same way, `schema4-preset` and `schema4b-preset`.
+  `intensity` and `modelTransform` it declares reaching nothing.
+  `schema4-preset`, `schema4b-preset`, `reverie` and `seraphim` lost stages
+  the same way. All are fixed at the root, above.
 - **Parameters that are images.** `aura`, `blob` and `candyland` set a knob
-  with `(mapped :value X :map (circle-gradient ...))` -- a value that varies
-  across the frame. The graph format has no such thing, so the extraction kept
-  the literal and dropped the map. This is a gap rather than a slip, and it is
-  not fixed here.
+  with `(mapped :value X :map (circle-gradient ...))`. The app declares those
+  parameters as a union -- `<union :constant <double> :mapped <struct :value
+  <double> :map <image-view>>>` -- and compiles a different shader for each
+  side of it. What was recovered is the constant side: `marble` takes
+  `intensity` as a plain uniform and samples one image, its source. Carrying
+  the mapped side needs the shaders the app generates for it, which are not
+  in what was extracted, so this one is blocked rather than pending.
 - **Shaders shadowed by a reimplementation.** Three remain. `pointer`'s
   extracted entry names a different function with unrelated parameters, so its
   passthrough verdict is right. `square-mosaic` and `wormhole` were recovered
   incomplete -- the first is a bare block with no enclosing function, the
   second has a `float a = ` with nothing after it -- and their CPU versions
   are the only thing to ship.
-- **Knobs that reach no node.** 45 across 22 filters are both measurably dead
-  and statically unreachable; `glass-marble`'s two are fixed with its chain,
-  and `examples/deadknobs.rs` lists the rest. Not all are faults -- a knob can
-  be inert at the defaults, which is why the list is measured and read rather
+- **Knobs that reach no node.** 45 across 22 filters were both measurably dead
+  and statically unreachable. The extractor fixes above took that to 10 across
+  7, listed by `examples/deadknobs.rs`. Not all are faults -- a knob can be
+  inert at the defaults, which is why the list is measured and read rather
   than acted on wholesale.
 - **Filters the app builds from other filters.** Thirteen more are still CPU
   reimplementations of lambdas: `bloom-simple`, `saint-remy`, `photo-label`,
