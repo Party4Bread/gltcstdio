@@ -150,41 +150,6 @@ pub fn saturated_square(img: &Image, v: &Values, _: &Inputs) -> Image {
     out
 }
 
-/// Brushed-metal relief: displace along the gradient, then dehaze.
-pub fn metal(img: &Image, v: &Values, inputs: &Inputs) -> Image {
-    let (crunch, contrast) = (f(v, "crunch"), f(v, "contrast"));
-    let g = gaussian(
-        &Plane::scalar(img, |p| luma(p[0] / 255.0, p[1] / 255.0, p[2] / 255.0)),
-        1.5,
-    );
-    let (w, h) = (img.width as usize, img.height as usize);
-    let amp = crunch * w.min(h) as f32 * 0.06;
-
-    let mut warped = img.clone();
-    for y in 0..h {
-        for x in 0..w {
-            let gx = if x > 0 && x + 1 < w {
-                g.at(x + 1, y, 0) - g.at(x - 1, y, 0)
-            } else {
-                0.0
-            };
-            let gy = if y > 0 && y + 1 < h {
-                g.at(x, y + 1, 0) - g.at(x, y - 1, 0)
-            } else {
-                0.0
-            };
-            let sx = (x as f32 + gx * amp).round() as i64;
-            let sy = (y as f32 + gy * amp).round() as i64;
-            warped.set(x as u32, y as u32, img.clamped(sx, sy));
-        }
-    }
-
-    let mut dehaze_values = Values::new();
-    dehaze_values.insert("intensity".into(), vec![contrast]);
-    dehaze_values.insert("blurRadius".into(), vec![0.1]);
-    super::blur::dehaze(&warped, &dehaze_values, inputs)
-}
-
 /// Two-tone ink wash: smooth, then cut at a threshold.  (Shared with `paint`.)
 pub fn ink(img: &Image, threshold: f32, smoothing: f32, ink: [f32; 4], paper: [f32; 4]) -> Image {
     let mut g = Plane::scalar(img, |p| luma(p[0] / 255.0, p[1] / 255.0, p[2] / 255.0));

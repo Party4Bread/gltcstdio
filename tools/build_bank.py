@@ -413,6 +413,110 @@ def gaussian_blur2_spec() -> dict:
     }
 
 
+def unsharp_mask_specs() -> dict:
+    """`sharpen`, `dehaze` and `metal` as the app registers them.
+
+    `UnsharpMask.h` registers, under whatever name its subclass passes up,
+
+        (linear-blend source (gaussian-blur2 source blurRadius)
+                      :intensity (neg intensity))
+
+    and `Sharpen` and `Dehaze` supply that name and their own parameter list
+    through `super(...)`.  An unsharp mask is a blend towards the blur run
+    backwards, which is what the negation is for: `linear-blend` in its
+    default mode returns `mix(source, blur, intensity)`, so a negative
+    intensity extrapolates away from the blur instead of towards it.
+
+    `Metal.java` then registers
+
+        (dehaze :source (gradient-displacement :source1 source1 :source2 source1
+                            :modelTransform transform :intensity crunch)
+                :intensity contrast :blurRadius 0.10)
+
+    `:source2 source1` is the app feeding the displacement port from the image
+    itself, which is what the shader does anyway when that port is unbound --
+    `displacement_specified` selects between them -- so the graph leaves it
+    unwired rather than uploading the same picture twice.
+
+    All three were reimplemented on the CPU around a separable Gaussian.  At
+    the size the editor previews at that blur runs 541 taps a pixel, which is
+    why they were three of the five slowest filters in the bank; as the app
+    builds them they are two shader passes.  `sharpen` was already extracted
+    as this graph but with none of the bindings, so its only knob did nothing
+    -- `tools/verify.py` has been reporting it.
+    """
+    def unsharp(name, label, params):
+        return {
+            "id": name,
+            "name": label,
+            "category": "texture",
+            "backend": "graph",
+            "fidelity": "extracted",
+            "supported": True,
+            "inputs": 1,
+            "extra_inputs": [],
+            "chain": ["linear-blend", "gaussian-blur2"],
+            "graph": {
+                "filter": "linear-blend",
+                "params": {"intensity": {"bind": "intensity", "neg": True}},
+                "inputs": {
+                    "source1": {"input": "source"},
+                    "source2": {
+                        "filter": "gaussian-blur2",
+                        "params": {"radius": {"bind": "blurRadius"}},
+                        "inputs": {"source": {"input": "source"}},
+                    },
+                },
+            },
+            "params": params,
+            "presets": [],
+        }
+
+    def knob(name, label, default, lo, hi):
+        return {"name": name, "type": "float", "label": label,
+                "default": default, "min": lo, "max": hi, "widget": "slider"}
+
+    return {
+        # Sharpen.java: intensity 0..1 default 0.5, blurRadius 0..0.1 default 0.001
+        "sharpen": unsharp("sharpen", "Sharpen", [
+            knob("intensity", "Intensity", 0.5, 0.0, 1.0),
+            knob("blurRadius", "Blur radius", 0.001, 0.0, 0.1),
+        ]),
+        # Dehaze.java: intensity 0..1 default 0.5, blurRadius 0.05..1 default 0.1
+        "dehaze": unsharp("dehaze", "Dehaze", [
+            knob("intensity", "Intensity", 0.5, 0.0, 1.0),
+            knob("blurRadius", "Blur radius", 0.1, 0.05, 1.0),
+        ]),
+        "metal": {
+            "id": "metal",
+            "name": "Metal",
+            "category": "art",
+            "backend": "graph",
+            "fidelity": "extracted",
+            "supported": True,
+            "inputs": 1,
+            "extra_inputs": [],
+            "chain": ["dehaze", "gradient-displacement"],
+            "graph": {
+                "filter": "dehaze",
+                "params": {"intensity": {"bind": "contrast"}, "blurRadius": 0.10},
+                "inputs": {
+                    "source": {
+                        "filter": "gradient-displacement",
+                        "params": {"intensity": {"bind": "crunch"}},
+                        "inputs": {"source1": {"input": "source"}},
+                    }
+                },
+            },
+            "params": [
+                knob("crunch", "Crunch", 0.5, 0.0, 1.0),
+                knob("contrast", "Contrast", 0.6, 0.0, 1.0),
+            ],
+            "presets": [],
+        },
+    }
+
+
 def main() -> None:
     shaders = json.loads(Path("work/shaders.json").read_text())
     raw_params = json.loads(Path("work/params.json").read_text())
@@ -690,14 +794,35 @@ def main() -> None:
             prefer_gl.add(fid)
         elif fid in filters:
             # Never swept before, so `supported` was whatever the metadata
-            # guessed; 19 of them claimed to compile and do not.
+            # guessed; 19 of them claimed to compile and do not.  A shader
+            # that compiled and drew nothing is a different verdict and says
+            # so: `mobius-torus` was recorded as failing to compile when it
+            # had only rendered its input back at defaults that give its tube
+            # no thickness.
             filters[fid]["supported"] = False
-            filters[fid]["unsupported_reason"] = verdict.get(
-                "error", "shader does not compile"
+            filters[fid]["unsupported_reason"] = verdict.get("error") or (
+                "shader renders its input unchanged at the defaults"
+                if verdict.get("passthrough")
+                else "shader does not compile"
             )
+    # A shader that draws nothing at its defaults is not a broken shader.
+    # `mobius-torus` is the app's own ray marcher, and its defaults give the
+    # tube zero thickness -- `roundness` is 0.0 -- so the sweep saw its input
+    # come back unchanged and kept the reimplementation.  The app presents
+    # this filter through its three presets ("copper ring", "silver ring",
+    # "gold ring"), all of which render, and which set `separation`,
+    # `specular` and `model3DTransform` -- parameters the reimplementation
+    # does not have, so they did nothing at all.  On top of that the shader is
+    # 8 ms against 281 ms at 900x900.
+    prefer_gl.add("mobius-torus")
     if prefer_gl:
         for fid in prefer_gl:
-            filters[fid]["prefer_gl"] = True
+            if fid in filters:
+                filters[fid]["prefer_gl"] = True
+                # Shipping a shader and calling it unsupported cannot both be
+                # true, and `white-infinite` chains this one.
+                filters[fid]["supported"] = True
+                filters[fid].pop("unsupported_reason", None)
         print(f"  {len(prefer_gl)} shaders replace their CPU reimplementation")
 
     # `gaussian-blur2` is not a filter of the app's own: it is a lambda over
@@ -706,6 +831,22 @@ def main() -> None:
     if "gaussian-blurh" in filters and "gaussian-blurv" in filters:
         filters["gaussian-blur2"] = gaussian_blur2_spec()
         print("  gaussian-blur2 built from the app's own pair of shaders")
+
+    # `sharpen`, `dehaze` and `metal` are lambdas the app builds out of
+    # filters it already has; see `unsharp_mask_specs`.
+    if all(k in filters for k in ("linear-blend", "gaussian-blur2", "gradient-displacement")):
+        for fid, spec in unsharp_mask_specs().items():
+            filters[fid] = spec
+        # `linear-blend` mixes towards its second image, and an unsharp mask
+        # is that mix run backwards, so the app's own lambda hands it a
+        # negative intensity.  0..1 is the range of the control the app shows,
+        # not of the operator behind it: values are clamped to the declared
+        # range on the way in, which turned `sharpen` and `dehaze` into
+        # passthroughs when they went through this node.
+        for p in filters["linear-blend"]["params"]:
+            if p["name"] == "intensity" and p.get("min", 0.0) == 0.0:
+                p["min"] = -1.0
+        print("  sharpen, dehaze and metal built from the app's own lambdas")
 
     # Curated looks: several filters chained, rather than one shader.
     graphs_path = Path("work/graphs.json")

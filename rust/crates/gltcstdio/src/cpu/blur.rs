@@ -62,13 +62,6 @@ impl Plane {
         self.data[(y * self.width + x) * self.channels + c]
     }
 
-    /// Clamp to the edge, as the blur's padding does.
-    #[inline]
-    pub fn clamped(&self, x: i64, y: i64, c: usize) -> f32 {
-        let x = x.clamp(0, self.width as i64 - 1) as usize;
-        let y = y.clamp(0, self.height as i64 - 1) as usize;
-        self.at(x, y, c)
-    }
 }
 
 /// Convolve along one axis: 0 is vertical, 1 is horizontal.
@@ -91,22 +84,37 @@ pub fn convolve1d(p: &Plane, k: &[f32], axis: usize) -> Plane {
     let (span, lines) = if axis == 1 { (w, h) } else { (h, w) };
     let step = if axis == 1 { ch } else { w * ch };
 
-    let mut line = vec![0.0f32; span + 2 * pad];
+    // A line is copied out with its channels still interleaved and its ends
+    // repeated, so the tap loop reads forwards through one buffer and
+    // multiplies a whole pixel at a time.
+    let mut line = vec![0.0f32; (span + 2 * pad) * ch];
     for l in 0..lines {
         let head = if axis == 1 { l * w * ch } else { l * ch };
-        for c in 0..ch {
-            for (i, slot) in line.iter_mut().enumerate() {
-                // `mode="edge"`: the ends repeat rather than fade to black.
-                let at = (i as i64 - pad as i64).clamp(0, span as i64 - 1) as usize;
-                *slot = p.data[head + at * step + c];
-            }
-            for i in 0..span {
-                let window = &line[i..i + k.len()];
-                let mut acc = 0.0;
-                for (weight, value) in k.iter().zip(window) {
-                    acc += weight * value;
+        for i in 0..span + 2 * pad {
+            // `mode="edge"`: the ends repeat rather than fade to black.
+            let at = (i as i64 - pad as i64).clamp(0, span as i64 - 1) as usize;
+            let from = head + at * step;
+            line[i * ch..i * ch + ch].copy_from_slice(&p.data[from..from + ch]);
+        }
+        // Whole pixels at a time where the count is known, which is what lets
+        // the compiler put four channels through one register.  Each channel
+        // still accumulates over the taps in the order it always did, so the
+        // sums are the same to the bit -- this is wider, not reordered.
+        match ch {
+            4 => taps::<4>(&line, k, span, &mut out, head, step),
+            3 => taps::<3>(&line, k, span, &mut out, head, step),
+            2 => taps::<2>(&line, k, span, &mut out, head, step),
+            1 => taps::<1>(&line, k, span, &mut out, head, step),
+            _ => {
+                for i in 0..span {
+                    for c in 0..ch {
+                        let mut acc = 0.0;
+                        for (j, weight) in k.iter().enumerate() {
+                            acc += weight * line[(i + j) * ch + c];
+                        }
+                        out[head + i * step + c] = acc;
+                    }
                 }
-                out[head + i * step + c] = acc;
             }
         }
     }
@@ -115,6 +123,28 @@ pub fn convolve1d(p: &Plane, k: &[f32], axis: usize) -> Plane {
         height: h,
         channels: ch,
         data: out,
+    }
+}
+
+/// One line of a convolution, `C` channels at a time.
+fn taps<const C: usize>(
+    line: &[f32],
+    k: &[f32],
+    span: usize,
+    out: &mut [f32],
+    head: usize,
+    step: usize,
+) {
+    for i in 0..span {
+        let mut acc = [0.0f32; C];
+        for (j, weight) in k.iter().enumerate() {
+            let window = &line[(i + j) * C..(i + j) * C + C];
+            for c in 0..C {
+                acc[c] += weight * window[c];
+            }
+        }
+        let at = head + i * step;
+        out[at..at + C].copy_from_slice(&acc);
     }
 }
 
@@ -274,23 +304,6 @@ pub fn crt_contrast(img: &Image, v: &Values, _: &Inputs) -> Image {
                 let value = src.data[i] + (src.data[i] - local.data[i]) * (intensity * 2.0);
                 out.data[i] = (value * scan * vignette).clamp(0.0, 255.0) as u8;
             }
-        }
-    }
-    out
-}
-
-/// Pull back the local haze: subtract a blurred estimate and restretch.
-pub fn dehaze(img: &Image, v: &Values, _: &Inputs) -> Image {
-    let (intensity, blur_radius) = (f(v, "intensity"), f(v, "blurRadius"));
-    let dark = Plane::scalar(img, |p| p[0].min(p[1]).min(p[2]));
-    let veil = gaussian(&dark, sigma_for(img, blur_radius));
-    let scale = (1.0 - intensity * 0.9).max(1e-3);
-
-    let mut out = img.clone();
-    for i in 0..img.pixels() {
-        for c in 0..3 {
-            let value = (img.data[i * 4 + c] as f32 - veil.data[i] * intensity) / scale;
-            out.data[i * 4 + c] = value.clamp(0.0, 255.0) as u8;
         }
     }
     out

@@ -670,8 +670,8 @@ def build(
     browser needs wherever the filter samples inside a conditional.  It costs
     the mip filtering, so it is only used where it is required.
     """
-    body = glmod._fix_array_return(
-        glmod._fix_reversed_clamp(renderer.bank.glsl(f.id))
+    body = glmod._drop_dead_functions(
+        glmod._fix_array_return(glmod._fix_reversed_clamp(renderer.bank.glsl(f.id)))
     )
 
     stdlib = renderer._stdlib

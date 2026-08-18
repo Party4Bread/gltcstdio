@@ -46803,8 +46803,8 @@
    "inputs": 1,
    "glsl": "filters/hyperbolic-lace.glsl",
    "source_class": "HyperbolicGroupLimit",
-   "supported": false,
-   "unsupported_reason": "0(2104) : error C1103: too few parameters in function call"
+   "supported": true,
+   "prefer_gl": true
   },
   "hyperbolic-square": {
    "id": "hyperbolic-square",
@@ -55965,7 +55965,7 @@
      "type": "float",
      "label": "Intensity",
      "default": 1.0,
-     "min": 0.0,
+     "min": -1.0,
      "max": 1.0,
      "widget": "slider"
     },
@@ -66481,8 +66481,8 @@
    "inputs": 1,
    "glsl": "filters/mobius-torus.glsl",
    "source_class": "RayMarcherMobiusTorus",
-   "supported": false,
-   "unsupported_reason": "shader does not compile"
+   "supported": true,
+   "prefer_gl": true
   },
   "modulation": {
    "id": "modulation",
@@ -128157,45 +128157,64 @@
   "dehaze": {
    "id": "dehaze",
    "name": "Dehaze",
-   "category": "presets",
+   "category": "texture",
    "backend": "graph",
+   "fidelity": "extracted",
+   "supported": true,
+   "inputs": 1,
+   "extra_inputs": [],
+   "chain": [
+    "linear-blend",
+    "gaussian-blur2"
+   ],
    "graph": {
     "filter": "linear-blend",
+    "params": {
+     "intensity": {
+      "bind": "intensity",
+      "neg": true
+     }
+    },
     "inputs": {
      "source1": {
       "input": "source"
      },
      "source2": {
       "filter": "gaussian-blur2",
+      "params": {
+       "radius": {
+        "bind": "blurRadius"
+       }
+      },
       "inputs": {
        "source": {
         "input": "source"
        }
-      },
-      "params": {}
+      }
      }
-    },
-    "params": {}
+    }
    },
-   "chain": [
-    "linear-blend",
-    "gaussian-blur2"
-   ],
    "params": [
+    {
+     "name": "intensity",
+     "type": "float",
+     "label": "Intensity",
+     "default": 0.5,
+     "min": 0.0,
+     "max": 1.0,
+     "widget": "slider"
+    },
     {
      "name": "blurRadius",
      "type": "float",
-     "label": "blur radius",
+     "label": "Blur radius",
      "default": 0.1,
-     "min": 0.0,
+     "min": 0.05,
      "max": 1.0,
      "widget": "slider"
     }
    ],
-   "presets": [],
-   "supported": true,
-   "inputs": 1,
-   "fidelity": "extracted"
+   "presets": []
   },
   "disco-planet": {
    "id": "disco-planet",
@@ -131896,89 +131915,61 @@
   "metal": {
    "id": "metal",
    "name": "Metal",
-   "category": "presets",
+   "category": "art",
    "backend": "graph",
+   "fidelity": "extracted",
+   "supported": true,
+   "inputs": 1,
+   "extra_inputs": [],
+   "chain": [
+    "dehaze",
+    "gradient-displacement"
+   ],
    "graph": {
     "filter": "dehaze",
-    "inputs": {
-     "source": {
-      "filter": "gradient-displacement",
-      "inputs": {
-       "source1": {
-        "input": "source"
-       },
-       "source2": {
-        "input": "source"
-       }
-      },
-      "params": {
-       "modelTransform": {
-        "bind": "transform"
-       },
-       "intensity": {
-        "bind": "crunch"
-       }
-      }
-     }
-    },
     "params": {
      "intensity": {
       "bind": "contrast"
      },
      "blurRadius": 0.1
+    },
+    "inputs": {
+     "source": {
+      "filter": "gradient-displacement",
+      "params": {
+       "intensity": {
+        "bind": "crunch"
+       }
+      },
+      "inputs": {
+       "source1": {
+        "input": "source"
+       }
+      }
+     }
     }
    },
-   "chain": [
-    "dehaze",
-    "gradient-displacement"
-   ],
    "params": [
-    {
-     "name": "transform",
-     "type": "mat3",
-     "label": "Transform",
-     "default": [
-      [
-       1.0,
-       0.0,
-       0.0
-      ],
-      [
-       0.0,
-       1.0,
-       0.0
-      ],
-      [
-       0.0,
-       0.0,
-       1.0
-      ]
-     ],
-     "widget": "transform"
-    },
     {
      "name": "crunch",
      "type": "float",
-     "label": "Intensity",
-     "default": 0.3,
-     "min": -1.0,
+     "label": "Crunch",
+     "default": 0.5,
+     "min": 0.0,
      "max": 1.0,
      "widget": "slider"
     },
     {
-     "name": "blurRadius",
+     "name": "contrast",
      "type": "float",
-     "label": "blur radius",
-     "default": 0.1,
+     "label": "Contrast",
+     "default": 0.6,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
     }
    ],
-   "presets": [],
-   "supported": true,
-   "inputs": 1,
-   "fidelity": "extracted"
+   "presets": []
   },
   "ml-black-and-white": {
    "id": "ml-black-and-white",
@@ -148435,45 +148426,64 @@
   "sharpen": {
    "id": "sharpen",
    "name": "Sharpen",
-   "category": "presets",
+   "category": "texture",
    "backend": "graph",
+   "fidelity": "extracted",
+   "supported": true,
+   "inputs": 1,
+   "extra_inputs": [],
+   "chain": [
+    "linear-blend",
+    "gaussian-blur2"
+   ],
    "graph": {
     "filter": "linear-blend",
+    "params": {
+     "intensity": {
+      "bind": "intensity",
+      "neg": true
+     }
+    },
     "inputs": {
      "source1": {
       "input": "source"
      },
      "source2": {
       "filter": "gaussian-blur2",
+      "params": {
+       "radius": {
+        "bind": "blurRadius"
+       }
+      },
       "inputs": {
        "source": {
         "input": "source"
        }
-      },
-      "params": {}
+      }
      }
-    },
-    "params": {}
+    }
    },
-   "chain": [
-    "linear-blend",
-    "gaussian-blur2"
-   ],
    "params": [
     {
-     "name": "blurRadius",
+     "name": "intensity",
      "type": "float",
-     "label": "blur radius",
-     "default": 0.001,
+     "label": "Intensity",
+     "default": 0.5,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
+    },
+    {
+     "name": "blurRadius",
+     "type": "float",
+     "label": "Blur radius",
+     "default": 0.001,
+     "min": 0.0,
+     "max": 0.1,
+     "widget": "slider"
     }
    ],
-   "presets": [],
-   "supported": true,
-   "inputs": 1,
-   "fidelity": "extracted"
+   "presets": []
   },
   "sine-spike": {
    "id": "sine-spike",

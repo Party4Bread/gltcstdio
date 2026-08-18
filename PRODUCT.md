@@ -38,8 +38,8 @@ treated as constraints to hold, not as the scoreboard.
 
 ## Positioning
 
-The bank contains 463 GLSL filters translated to WGSL, 65 graphs the app
-builds around those filters, 175 curated looks, and 65 CPU effects. Opening a graph-based
+The bank contains 465 GLSL filters translated to WGSL, 65 graphs the app
+builds around those filters, 174 curated looks, and 61 CPU effects. Opening a graph-based
 look in the editor gives back its actual stages, editable, rendering
 byte-identically to the look itself.
 
@@ -63,9 +63,9 @@ server behind it.
 
 - 769 filters: 463 GPU (GLSL translated to WGSL), 65 wrappers around those
   (21 feeding an input from a blurred source, 44 confining the effect to a
-  region), 175 curated looks (chains of other filters), 65 CPU, and the
-  app's own blur, a graph over two of its shaders. 33
-  categories, 1388 presets, 5246 parameters, 120 filters that read a second
+  region), 174 curated looks (chains of other filters), 61 CPU, and four
+  lambdas the app builds from its own filters. 33
+  categories, 1399 presets, 5272 parameters, 120 filters that read a second
   image.
 - Every parameter type has a control, generated from the bank spec rather
   than written per filter: scalars, enums, colours with alpha, text, palettes,
@@ -78,6 +78,11 @@ server behind it.
   inside a conditional nested too deep to lift, which WGSL forbids. The three
   curated looks built on it — `glory`, `radiate`, `seraphim` — cannot render
   in the editor. They work natively.
+- `sharpen`, `dehaze`, `metal`, `mobius-torus` and `hyperbolic-lace` are the
+  app's own lambdas and shaders rather than CPU reimplementations of them,
+  which is both more faithful and between 20 and 75 times quicker. No filter
+  in the bank now costs more than a quarter second at the size the editor
+  previews at.
 - `gaussian-blur2` is the app's own graph over its `gaussian-blurv` and
   `gaussian-blurh` shaders, not a reimplementation of it. Getting there meant
   binding `u_SourceTransform` -- which those two and `blur` read, and both

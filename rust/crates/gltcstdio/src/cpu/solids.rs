@@ -59,7 +59,7 @@ fn env(img: &Image, dir: Vec3) -> [f32; 3] {
 }
 
 /// March until the field says we are at the surface, or we give up.
-fn march(sdf: &dyn Fn(Vec3) -> f32, ro: Vec3, rd: Vec3) -> (f32, bool) {
+fn march(sdf: impl Fn(Vec3) -> f32, ro: Vec3, rd: Vec3) -> (f32, bool) {
     let mut t = 0.0f32;
     for _ in 0..MAX_STEPS {
         let d = sdf(add(ro, scale(rd, t)));
@@ -74,7 +74,7 @@ fn march(sdf: &dyn Fn(Vec3) -> f32, ro: Vec3, rd: Vec3) -> (f32, bool) {
     (t, false)
 }
 
-fn normal_at(sdf: &dyn Fn(Vec3) -> f32, p: Vec3) -> Vec3 {
+fn normal_at(sdf: impl Fn(Vec3) -> f32, p: Vec3) -> Vec3 {
     let e = 0.002;
     normalize([
         sdf([p[0] + e, p[1], p[2]]) - sdf([p[0] - e, p[1], p[2]]),
@@ -119,15 +119,19 @@ fn render_solid(
     let fog = rgba(v, "colorFog");
     let fresnel = f(v, "fresnelStrength");
     let ro = [0.0, 0.0, camera_z];
-    let sdf: &dyn Fn(Vec3) -> f32 = &sdf;
 
     let mut out = Image::empty(img.width, img.height);
     for y in 0..img.height {
         for x in 0..img.width {
             let rd = ray(x, y, img.width, img.height, 1.6);
-            let (t, hit) = march(sdf, ro, rd);
-            let p = add(ro, scale(rd, t));
-            let n = normal_at(sdf, p);
+            let (t, hit) = march(&sdf, ro, rd);
+            // A ray that hit nothing is shaded as fog and never reads the
+            // normal, so the six field samples it takes are thrown away.
+            let n = if hit {
+                normal_at(&sdf, add(ro, scale(rd, t)))
+            } else {
+                [0.0, 0.0, 0.0]
+            };
             let col = shade(img, n, rd, hit, material, fog, fresnel);
             out.set(
                 x,
@@ -193,14 +197,17 @@ fn render_named(
     sdf: impl Fn(Vec3) -> f32,
 ) -> Image {
     let ro = [0.0, 0.0, camera_z];
-    let sdf: &dyn Fn(Vec3) -> f32 = &sdf;
     let mut out = Image::empty(img.width, img.height);
     for y in 0..img.height {
         for x in 0..img.width {
             let rd = ray(x, y, img.width, img.height, 1.6);
-            let (t, hit) = march(sdf, ro, rd);
-            let p = add(ro, scale(rd, t));
-            let n = normal_at(sdf, p);
+            let (t, hit) = march(&sdf, ro, rd);
+            // As above: a miss is fog, and its normal is never looked at.
+            let n = if hit {
+                normal_at(&sdf, add(ro, scale(rd, t)))
+            } else {
+                [0.0, 0.0, 0.0]
+            };
             let col = shade(img, n, rd, hit, material, fog, fresnel);
             out.set(
                 x,
@@ -215,21 +222,6 @@ fn render_named(
         }
     }
     out
-}
-
-/// A torus whose tube cross-section rotates as it goes round.
-pub fn mobius_torus(img: &Image, v: &Values, _: &Inputs) -> Image {
-    let big = f(v, "radius");
-    let small = f(v, "roundness");
-    let twists = i(v, "count").max(1) as f32;
-    render_solid(img, v, -3.2, move |p| {
-        let ang = p[2].atan2(p[0]);
-        let rad = p[0].hypot(p[2]) - big;
-        let (c, s) = ((ang * twists * 0.5).cos(), (ang * twists * 0.5).sin());
-        let u = rad * c + p[1] * s;
-        let w = -rad * s + p[1] * c;
-        (u.abs() - small).max(w.abs() - small * 0.25)
-    })
 }
 
 /// A wireframe grid whose height follows image luminance.
@@ -358,48 +350,3 @@ pub fn hex_3d_tiling(img: &Image, v: &Values, _: &Inputs) -> Image {
     out
 }
 
-/// Lace woven from repeated reflection inside the Poincare disc.
-pub fn hyperbolic_lace(img: &Image, v: &Values, _: &Inputs) -> Image {
-    let p = i(v, "paramP").max(3) as f32;
-    let iterations = i(v, "iterations").max(1);
-    let glow = f(v, "glow");
-    let c1 = rgba(v, "color1");
-    let c2 = rgba(v, "color2");
-    let ang = PI / p;
-
-    let mut out = img.clone();
-    for py in 0..img.height {
-        for px in 0..img.width {
-            let u = (px as f32 / (img.width.max(2) - 1) as f32 - 0.5) * 2.0;
-            let vv = (py as f32 / (img.height.max(2) - 1) as f32 - 0.5) * 2.0;
-            if u * u + vv * vv > 1.0 {
-                out.set(px, py, [0, 0, 0, img.get(px, py)[3]]);
-                continue;
-            }
-            let (mut x, mut y) = (u, vv);
-            let mut acc = 0.0f32;
-            for _ in 0..iterations {
-                // Fold into the fundamental wedge, then invert in the circle.
-                let a = ((y.atan2(x) + ang).rem_euclid(2.0 * ang) - ang).abs();
-                let rad = x.hypot(y);
-                x = rad * a.cos();
-                y = rad * a.sin();
-                let d2 = (x * x + y * y).max(1e-6);
-                if d2 > 0.5 {
-                    let k = 0.5 / d2;
-                    x *= k;
-                    y *= k;
-                }
-                acc += (-8.0 * (x.hypot(y) - 0.5).abs()).exp();
-            }
-            acc = (acc / iterations as f32 * (1.0 + glow * 3.0)).clamp(0.0, 1.0);
-            let mut px_out = img.get(px, py);
-            for c in 0..3 {
-                let value = (c2[c] + (c1[c] - c2[c]) * acc) * 255.0;
-                px_out[c] = value.clamp(0.0, 255.0) as u8;
-            }
-            out.set(px, py, px_out);
-        }
-    }
-    out
-}

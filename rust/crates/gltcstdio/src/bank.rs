@@ -82,7 +82,16 @@ pub enum Node {
     /// `{"input": "source"}` -- the image the caller passed in.
     Input { input: String },
     /// `{"bind": "intensity"}` -- forwards one of the graph's own parameters.
-    Bind { bind: String },
+    ///
+    /// `"neg": true` forwards it with the sign flipped, which is the app's
+    /// `(neg intensity)`: an unsharp mask is a blend towards the blur run
+    /// backwards, so `dehaze` and `sharpen` pass their intensity to
+    /// `linear-blend` negated.
+    Bind {
+        bind: String,
+        #[serde(default)]
+        neg: bool,
+    },
     /// A filter applied to inputs that are themselves nodes.
     Filter(Box<FilterNode>),
     /// A literal value.

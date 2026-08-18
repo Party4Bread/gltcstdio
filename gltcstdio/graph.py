@@ -58,12 +58,19 @@ def render_graph(
             break
 
     params = {}
+    # Knobs this node takes with the sign flipped, so an override delivered by
+    # name below arrives the same way round as the binding did.
+    negated = set()
     for k, v in (node.get("params") or {}).items():
         if isinstance(v, dict) and "bind" in v:
             # A lambda knob passed through by name: the value comes from the
             # caller, and with none supplied the filter keeps its own default.
+            # `"neg": true` is the app's `(neg intensity)` -- an unsharp mask
+            # is a blend towards the blur run backwards.
+            if v.get("neg"):
+                negated.add(k)
             if overrides and v["bind"] in overrides:
-                params[k] = overrides[v["bind"]]
+                params[k] = _signed(overrides[v["bind"]], negated, k)
             continue
         params[k] = v
 
@@ -75,7 +82,7 @@ def render_graph(
             binding = bindings.get(k)
             if binding is not None:
                 if k in params and path in binding[1]:
-                    params[k] = v
+                    params[k] = _signed(v, negated, k)
             elif not path or node.get("forward"):
                 # A name no node sets.  The app's presets address the root
                 # filter's own parameters this way -- `preset-channel-reflect1`
@@ -84,9 +91,20 @@ def render_graph(
                 # parameter list of the filter it blends in.  `render_node`
                 # drops anything the filter does not declare, so offering it
                 # here is safe.
-                params[k] = v
+                params[k] = _signed(v, negated, k)
 
     return render_node(node["filter"], primary, params, inputs)
+
+
+def _signed(value, negated: set, name: str):
+    """`value` with its sign flipped, for a knob the graph forwards negated."""
+    if name not in negated:
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return -value
+    if isinstance(value, (list, tuple)):
+        return [-x if isinstance(x, (int, float)) else x for x in value]
+    return value
 
 
 def graph_occurrences(node: dict, path: tuple = (), out: dict | None = None) -> dict:

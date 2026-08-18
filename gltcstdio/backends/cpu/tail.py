@@ -423,27 +423,6 @@ def pixel_sort_raw(img: np.ndarray, mode: int = 0, intensity: float = 0.25) -> n
 
 
 @cpu_filter(
-    "dehaze",
-    name="Dehaze",
-    category="texture",
-    fidelity="reimplemented",
-    params=[
-        {"name": "intensity", "type": "float", "label": "Intensity", "default": 0.5, "min": 0.0, "max": 1.0, "widget": "slider"},
-        {"name": "blurRadius", "type": "float", "label": "Blur Radius", "default": 0.1, "min": 0.0, "max": 0.4, "widget": "slider"},
-    ],
-    presets=[{"name": "default", "params": {}}],
-)
-def dehaze(img: np.ndarray, intensity: float = 0.5, blurRadius: float = 0.1) -> np.ndarray:
-    """Pull back the local haze: subtract a blurred estimate and restretch."""
-    rgb = img[..., :3].astype(np.float32)
-    veil = gaussian(rgb.min(axis=2, keepdims=True), float(blurRadius) * min(img.shape[:2]))
-    out = (rgb - veil * float(intensity)) / max(1e-3, 1.0 - float(intensity) * 0.9)
-    return np.clip(
-        np.dstack([out, img[..., 3:4].astype(np.float32)]), 0, 255
-    ).astype(np.uint8)
-
-
-@cpu_filter(
     "saturated-square",
     name="Saturated Square",
     category="color",
@@ -528,34 +507,6 @@ def ink_b(
     return np.clip(
         np.dstack([out, img[..., 3:4].astype(np.float32)]), 0, 255
     ).astype(np.uint8)
-
-
-@cpu_filter(
-    "metal",
-    name="Metal",
-    category="art",
-    fidelity="reimplemented",
-    params=[
-        {"name": "crunch", "type": "float", "label": "Crunch", "default": 0.5, "min": 0.0, "max": 1.0, "widget": "slider"},
-        {"name": "contrast", "type": "float", "label": "Contrast", "default": 0.6, "min": 0.0, "max": 1.0, "widget": "slider"},
-    ],
-    presets=[{"name": "default", "params": {}}],
-)
-def metal(img: np.ndarray, crunch: float = 0.5, contrast: float = 0.6) -> np.ndarray:
-    """Brushed-metal relief: displace along the gradient, then dehaze."""
-    h, w = img.shape[:2]
-    g = luma(img[..., :3].astype(np.float32) / 255.0)
-    g = gaussian(g[..., None], 1.5)[..., 0]
-    gx = np.zeros_like(g)
-    gy = np.zeros_like(g)
-    gx[:, 1:-1] = g[:, 2:] - g[:, :-2]
-    gy[1:-1, :] = g[2:, :] - g[:-2, :]
-    amp = float(crunch) * min(h, w) * 0.06
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-    sx = np.clip(np.round(xx + gx * amp), 0, w - 1).astype(np.int32)
-    sy = np.clip(np.round(yy + gy * amp), 0, h - 1).astype(np.int32)
-    warped = img[sy, sx]
-    return dehaze(warped, intensity=contrast, blurRadius=0.1)
 
 
 @cpu_filter(

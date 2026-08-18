@@ -16,14 +16,14 @@ xtask                        GLSL -> WGSL translation
 | | count |
 |---|---|
 | Filters that render | **769** |
-| — GPU (the app's GLSL, translated to WGSL) | 463 |
+| — GPU (the app's GLSL, translated to WGSL) | 465 |
 | — the app's own wrappers around those | 65 |
-| — the app's own blur, a graph over two of them | 1 |
-| — curated looks (chained filter graphs) | 175 |
-| — CPU | 65 |
+| — the app's own lambdas over those (blur, sharpen, dehaze, metal) | 4 |
+| — curated looks (chained filter graphs) | 174 |
+| — CPU | 61 |
 | Categories | 33 |
-| Presets | 1388 |
-| Configurable parameters | 5246 |
+| Presets | 1399 |
+| Configurable parameters | 5272 |
 
 Rendering the whole bank once at 256x256 takes about 2.1 s on an RTX 5070 Ti.
 
@@ -74,7 +74,7 @@ sources.insert("other".to_string(), second);
 let out = r.apply_graph_with_sources(&graph, &src, &Default::default(), &sources)?;
 ```
 
-Without a GPU, `Renderer::new` falls back to CPU-only and the 65 CPU filters
+Without a GPU, `Renderer::new` falls back to CPU-only and the 61 CPU filters
 still work; `Renderer::cpu_only()` skips the device entirely.
 
 ## Speed
@@ -135,8 +135,10 @@ everywhere else, in both renderers.
 renderers agree to within 0.3 on how much each pass flattens a noise field.
 
 Across the bank that took a render of all 769 at 900x900 from 47.0 s to
-11.3 s, the median from 6.4 ms to 4.2 ms, and the filters costing more than a
-quarter second from 33 to 10. In the editor `height-map-wireframe-gl` went
+11.3 s and the filters costing more than a quarter second from 33 to 10 -- a
+before and after measured against each other, but on the timing this file
+later found was inflated by first-use shader compilation, so neither figure
+lines up with the ones below. In the editor `height-map-wireframe-gl` went
 from 26.6 s to 197 ms.
 
 Above that sits a second cache, on what has been rendered rather than what
@@ -172,6 +174,56 @@ per node for a six-stage chain, the difference is:
 `cargo run --release --example chain_cost` measures it natively. A slider on
 the last of six stages settles in about a millisecond in the browser.
 
+### The slow end
+
+Five rounds of taking the slowest filter and fixing it took a render of the
+whole bank at 900x900 from 9.4 s to 5.0 s, the median from 3.5 ms to 2.3 ms,
+and the filters costing more than a quarter second from seven to none. The
+worst filter in the bank was 604 ms and is now 213 ms.
+
+| | before | after | |
+|---|---|---|---|
+| `lens-blur` | 604 ms | 213 ms | four channels through one register |
+| `metal` | 382 ms | 18 ms | the app's own lambda |
+| `dehaze` | 371 ms | 12 ms | the app's own lambda |
+| `mobius-torus` | 341 ms | 8 ms | the app's own shader |
+| `hyperbolic-lace` | 201 ms | 2.7 ms | the app's own shader |
+| `hyper-warp` | 212 ms | 9.5 ms | chains `hyperbolic-lace` |
+| `white-infinite` | 294 ms | — | chains `mobius-torus` |
+
+Only the first is an optimisation in the ordinary sense. `convolve1d` iterated
+one channel at a time, and its inner loop is a running float sum, which a
+compiler may not vectorise because float addition does not associate. Copying
+a line with its channels still interleaved lets four of them go through one
+register while each channel still accumulates over the taps in the order it
+always did -- wider, not reordered -- and every one of the 769 filters comes
+back byte for byte the same.
+
+The other four were CPU reimplementations of filters the app does not
+implement that way, and they follow `gaussian-blur2`:
+
+- `Metal.java` registers `metal` as `(dehaze (gradient-displacement source1
+  ...))`, and `UnsharpMask` registers `dehaze` and `sharpen` alike as
+  `(linear-blend source (gaussian-blur2 source blurRadius) :intensity (neg
+  intensity))`. An unsharp mask is a blend towards the blur run backwards,
+  which is what the negation is for, and `{"bind": ..., "neg": true}` is how
+  the graph format now says so. `sharpen` had already been extracted as this
+  graph with none of its bindings, so its one knob did nothing and
+  `tools/verify.py` had been reporting it; it now has the intensity the app
+  declares as well.
+- `mobius-torus` and `hyperbolic-lace` had shaders all along. The first was
+  shadowed because a sweep saw it return its input unchanged -- true at
+  defaults that give its tube zero thickness, and the app presents it through
+  three presets that all render. The second was recorded as failing to
+  compile, which it did: it carries a `getNormal` that calls its own two-
+  argument `sdf` with one argument. Nothing calls `getNormal`, so it is
+  dropped, and the shader compiles.
+
+Nine filters look different for all that -- those five and the four curated
+looks that chain them, `dreamy`, `hyper-warp`, `impact` and `white-infinite`
+-- and every one of them moved towards what the app does rather than away.
+The other 760 are byte-identical.
+
 ### Where a shader's time goes
 
 Not in the shader, for almost all of them. A typical filter renders 900x900 in
@@ -198,8 +250,8 @@ Two candidate savings were tried against that and neither moved:
 The filters that are genuinely shader-bound are ray marchers -- `quicksilver-3d`
 at 12.8 ms and `height-map` at 11.2 ms, both scaling cleanly with pixels -- and
 what they spend it on is the marching loop, which is the algorithm rather than
-waste. The bank's slow end is CPU filters and chains, not GLSL, so that is
-where the next optimisation is. The shaders are left as the app wrote them.
+waste. The shaders are left as the app wrote them; the slow end was the CPU
+filters and the chains, which is where the section above went.
 
 The cache is exact rather than approximate: a texture is reused only for
 identical pixels, and `the_upload_cache_changes_nothing` renders all 769
@@ -381,8 +433,7 @@ cargo run --release --example timeone -- height-map 900 30
 which is how the fidelity numbers were measured; `hop_cost` is where the
 speed figures come from. `slowest` times every filter at the size the editor
 previews at and lists the worst, which is what a report of lag gets checked
-against: 769 filters, 3.3 ms median, 7 of them over 250 ms, and every one of
-those a CPU filter or a chain. It builds each pipeline before timing anything
+against: 769 filters, 2.3 ms median, and none of them over 250 ms. It builds each pipeline before timing anything
 -- a filter's shader is compiled the first time it is used, which costs
 several times what running it does -- and takes the best of five runs, because
 one run in a sweep of 769 catches whatever the driver was doing for the filter

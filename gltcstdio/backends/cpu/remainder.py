@@ -567,58 +567,6 @@ _register_hyper("hyperbolic-square", "Hyperbolic Square")
 _register_hyper("hyper-kaleidoscopeios", "Hyper Kaleidoscope")
 
 
-@cpu_filter(
-    "hyperbolic-lace",
-    name="Hyperbolic Lace",
-    category="fractal",
-    fidelity="reimplemented",
-    params=[
-        {"name": "paramP", "type": "int", "label": "P", "default": 4, "min": 3, "max": 12, "widget": "int_slider"},
-        {"name": "paramQ", "type": "int", "label": "Q", "default": 5, "min": 3, "max": 12, "widget": "int_slider"},
-        {"name": "iterations", "type": "int", "label": "Iterations", "default": 8, "min": 1, "max": 24, "widget": "int_slider"},
-        {"name": "color1", "type": "vec4", "label": "Colour 1", "default": [0.9, 0.9, 1.0, 1.0], "widget": "color"},
-        {"name": "color2", "type": "vec4", "label": "Colour 2", "default": [0.1, 0.2, 0.5, 1.0], "widget": "color"},
-        {"name": "glow", "type": "float", "label": "Glow", "default": 0.2, "min": 0.0, "max": 1.0, "widget": "slider"},
-    ],
-    presets=[{"name": "default", "params": {}}],
-)
-def hyperbolic_lace(
-    img: np.ndarray,
-    paramP: int = 4,
-    paramQ: int = 5,
-    iterations: int = 8,
-    color1=(0.9, 0.9, 1.0, 1.0),
-    color2=(0.1, 0.2, 0.5, 1.0),
-    glow: float = 0.2,
-) -> np.ndarray:
-    """Lace woven from repeated reflection inside the Poincare disc."""
-    h, w = img.shape[:2]
-    u, v = _uv((h, w))
-    x, y = u.copy(), v.copy()
-    ang = np.pi / max(3, int(paramP))
-    acc = np.zeros((h, w), np.float32)
-    for i in range(max(1, int(iterations))):
-        a = np.abs(((np.arctan2(y, x) + ang) % (2 * ang)) - ang)
-        rad = np.hypot(x, y)
-        x, y = rad * np.cos(a), rad * np.sin(a)
-        d2 = np.maximum(x * x + y * y, 1e-6)
-        k = 0.5 / d2
-        far = d2 > 0.5
-        x = np.where(far, x * k, x)
-        y = np.where(far, y * k, y)
-        acc += np.exp(-8.0 * np.abs(np.hypot(x, y) - 0.5))
-    acc /= max(1, int(iterations))
-    acc = np.clip(acc * (1.0 + float(glow) * 3.0), 0, 1)
-    c1 = np.asarray(color1, np.float32)[:3] * 255.0
-    c2 = np.asarray(color2, np.float32)[:3] * 255.0
-    out = c2 + (c1 - c2) * acc[..., None]
-    out[u * u + v * v > 1.0] = 0.0
-    return _rgba(out, img)
-
-
-# ------------------------------------------------------------ ray marched
-
-
 RM_PARAMS = [
     {"name": "iterations", "type": "int", "label": "Iterations", "default": 4, "min": 1, "max": 8, "widget": "int_slider"},
     {"name": "colorScheme", "type": "float", "label": "Colour", "default": 0.0, "min": 0.0, "max": 1.0, "widget": "slider"},

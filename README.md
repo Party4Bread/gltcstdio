@@ -14,14 +14,14 @@ the WebGPU build translating them to WGSL during the build.
 | | count |
 |---|---|
 | Filters that render | **769** |
-| — GPU (original GLSL, unmodified) | 463 |
+| — GPU (original GLSL, unmodified) | 465 |
 | — the app's own wrappers around those | 65 |
-| — the app's own blur, a graph over two of them | 1 |
-| — curated looks (chained filter graphs) | 175 |
-| — CPU (numpy) | 65 |
+| — the app's own lambdas over those (blur, sharpen, dehaze, metal) | 4 |
+| — curated looks (chained filter graphs) | 174 |
+| — CPU (numpy) | 61 |
 | Categories | 33 |
-| Presets on those filters | 1388 |
-| Configurable parameters | 5246 |
+| Presets on those filters | 1399 |
+| Configurable parameters | 5272 |
 | Filters reading a second image | 120 |
 | GLSL support functions | 201 |
 

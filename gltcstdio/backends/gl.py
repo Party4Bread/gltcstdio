@@ -141,7 +141,9 @@ class Renderer:
 
     # -- shader assembly ----------------------------------------------------
     def build_source(self, f: Filter) -> str:
-        body = _fix_array_return(_fix_reversed_clamp(self.bank.glsl(f.id)))
+        body = _drop_dead_functions(
+            _fix_array_return(_fix_reversed_clamp(self.bank.glsl(f.id)))
+        )
 
         # A filter may ship its own version of a support-library function.
         # Two definitions of one name is a link error, so the filter's wins:
@@ -571,6 +573,28 @@ def _body_prototypes(body: str) -> list[str]:
 def _defined_functions(text: str) -> dict[str, tuple[str, ...]]:
     """Function name -> parameter type list, for redefinition checks."""
     return {m.group(1): _param_types(m.group(2)) for m in _DEF_RE.finditer(text)}
+
+
+# Functions an app shader defines, never calls, and could not compile if it
+# did.  `hyperbolic-lace` carries a `getNormal` that calls its own `sdf` with
+# one argument where `sdf` takes two, so the whole shader was rejected --
+# "too few parameters in function call" -- and the filter fell back to a CPU
+# reimplementation costing 200 ms a frame against about two on the device.
+# Nothing calls it, so dropping it changes nothing the shader draws.
+DEAD_FUNCTIONS = {"getNormal"}
+
+
+def _drop_dead_functions(body: str) -> str:
+    """Drop a defined-but-uncalled function this list names."""
+    for name in DEAD_FUNCTIONS:
+        if not re.search(rf"^[ \t]*{_GL_TYPES}\s+{re.escape(name)}\s*\(", body, re.M):
+            continue
+        # Only when nothing calls it: a shader that uses the name keeps it,
+        # and this list is about dead weight rather than about the name.
+        calls = len(re.findall(rf"\b{re.escape(name)}\s*\(", body))
+        if calls <= 1:
+            body = _strip_function(body, name)
+    return body
 
 
 def _strip_function(text: str, name: str) -> str:

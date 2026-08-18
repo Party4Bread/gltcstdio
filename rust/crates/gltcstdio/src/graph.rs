@@ -126,6 +126,24 @@ impl Renderer {
     }
 }
 
+/// A value with its sign flipped, for a knob the graph forwards negated.
+fn negate(value: &Value) -> Value {
+    match value {
+        Value::Float(x) => Value::Float(-x),
+        Value::Int(i) => Value::Int(-i),
+        Value::Seq(xs) => Value::Seq(xs.iter().map(|x| -x).collect()),
+        other => other.clone(),
+    }
+}
+
+fn signed(value: &Value, negated: &std::collections::BTreeSet<String>, name: &str) -> Value {
+    if negated.contains(name) {
+        negate(value)
+    } else {
+        value.clone()
+    }
+}
+
 /// What one node of a graph is given, once the caller's values are delivered.
 ///
 /// This is the whole of a node's parameter resolution, so anything that wants
@@ -134,14 +152,20 @@ impl Renderer {
 /// again and drifting.
 fn node_params(node: &FilterNode, outer: &Params, bindings: &Bindings, path: &Path) -> Params {
     let mut params = Params::new();
+    // Knobs this node takes with the sign flipped, so an override delivered
+    // by name below arrives the same way round as the binding did.
+    let mut negated: std::collections::BTreeSet<String> = Default::default();
     for (name, value) in &node.params {
         match value {
-            Node::Bind { bind } => {
+            Node::Bind { bind, neg } => {
                 // A knob passed through by name: the value comes from the
                 // caller, and with none supplied the filter keeps its own
                 // default.
+                if *neg {
+                    negated.insert(name.clone());
+                }
                 if let Some(given) = outer.get(bind) {
-                    params.insert(name.clone(), given.clone());
+                    params.insert(name.clone(), if *neg { negate(given) } else { given.clone() });
                 }
             }
             Node::Value(raw) => {
@@ -161,7 +185,7 @@ fn node_params(node: &FilterNode, outer: &Params, bindings: &Bindings, path: &Pa
         match bindings.get(name) {
             Some((_, paths)) => {
                 if params.contains_key(name) && paths.contains(path) {
-                    params.insert(name.clone(), value.clone());
+                    params.insert(name.clone(), signed(value, &negated, name));
                 }
             }
             None if path.is_empty() || node.forward => {
@@ -170,7 +194,7 @@ fn node_params(node: &FilterNode, outer: &Params, bindings: &Bindings, path: &Pa
                 // forwards the whole parameter list of the filter it
                 // blends in.  Anything the filter does not declare is
                 // dropped when its parameters are resolved.
-                params.insert(name.clone(), value.clone());
+                params.insert(name.clone(), signed(value, &negated, name));
             }
             None => {}
         }
