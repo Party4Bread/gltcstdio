@@ -237,6 +237,46 @@ ignored the transform entirely. `mat4` takes columns where the bank stores
 rows, so the -1 belongs at [2][3] -- which is where `mobius-torus`'s own
 presets keep theirs.
 
+### What else the extraction had lost
+
+`white-infinite` drawing nothing was not a one-off, so the same shapes were
+looked for across the bank. Each of these is measured or read out of the
+decompiled source rather than guessed at.
+
+- **Defaults taken from the declaration instead of the call.** A lambda
+  declares its knobs, usually inheriting them from the filter it forwards to,
+  and the app then invokes it with values of its own. The extraction kept the
+  declaration and dropped the call, so **71 values across 42 filters** opened
+  at the wrong setting -- `triangle-op-art` at intensity 0 against the app's
+  5, `star-kaleidoscope` at 0 against 1.11, `etched-circles` at thickness 0
+  against 0.12. `build_bank.call_site_defaults` now reads them off the call.
+- **Stages dropped from a chain.** `glass-marble` is
+  `adjust(lens-blur(globe(source)))` and had been extracted as the `adjust`
+  alone: a glass marble that was a brightness and contrast tweak, with the
+  `intensity` and `modelTransform` it declares reaching nothing. Two other
+  filters lose stages the same way, `schema4-preset` and `schema4b-preset`.
+- **Parameters that are images.** `aura`, `blob` and `candyland` set a knob
+  with `(mapped :value X :map (circle-gradient ...))` -- a value that varies
+  across the frame. The graph format has no such thing, so the extraction kept
+  the literal and dropped the map. This is a gap rather than a slip, and it is
+  not fixed here.
+- **Shaders shadowed by a reimplementation.** Three remain. `pointer`'s
+  extracted entry names a different function with unrelated parameters, so its
+  passthrough verdict is right. `square-mosaic` and `wormhole` were recovered
+  incomplete -- the first is a bare block with no enclosing function, the
+  second has a `float a = ` with nothing after it -- and their CPU versions
+  are the only thing to ship.
+- **Knobs that reach no node.** 45 across 22 filters are both measurably dead
+  and statically unreachable; `glass-marble`'s two are fixed with its chain,
+  and `examples/deadknobs.rs` lists the rest. Not all are faults -- a knob can
+  be inert at the defaults, which is why the list is measured and read rather
+  than acted on wholesale.
+- **Filters the app builds from other filters.** Thirteen more are still CPU
+  reimplementations of lambdas: `bloom-simple`, `saint-remy`, `photo-label`,
+  `flashback`, `pastel`, `knife-painting` and the rest. Most need value
+  constructors (`rgba`, `make-vignette`, `mat3-scale-uniform`) or `let`
+  bindings that the graph format does not carry yet.
+
 ### Where a shader's time goes
 
 Not in the shader, for almost all of them. A typical filter renders 900x900 in

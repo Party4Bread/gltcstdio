@@ -517,6 +517,139 @@ def unsharp_mask_specs() -> dict:
     }
 
 
+def glass_marble_spec(existing: dict) -> dict:
+    """`glass-marble` as `GlassMarble.java` registers it.
+
+        (adjust :source
+            (lens-blur :source
+                (globe :source source :intensity intensity
+                       :modelTransform modelTransform :power 2.0)
+                :radius 0.015 :hardness 0.35)
+            :brightness 0.12 :contrast 1.12
+            :vignette (make-vignette :intensity 0.35 :color (rgba 0 0 0 1)
+                                     :hardness 0.3 :transform (mat3 ...)))
+
+    The extraction kept only the outermost stage, so a glass marble was a
+    brightness and contrast tweak with nothing to make it glassy, and the
+    `intensity` and `modelTransform` it declares reached nothing at all.
+    """
+    f = dict(existing)
+    f["backend"] = "graph"
+    f["chain"] = ["adjust", "lens-blur", "globe"]
+    f["graph"] = {
+        "filter": "adjust",
+        "params": {
+            "brightness": 0.12,
+            "contrast": 1.12,
+            "vignette_intensity": 0.35,
+            "vignette_hardness": 0.3,
+            "vignette_color": [0.0, 0.0, 0.0, 1.0],
+        },
+        "inputs": {
+            "source": {
+                "filter": "lens-blur",
+                "params": {"radius": 0.015, "hardness": 0.35},
+                "inputs": {
+                    "source": {
+                        "filter": "globe",
+                        "params": {
+                            "intensity": {"bind": "intensity"},
+                            "modelTransform": {"bind": "modelTransform"},
+                            "power": 2.0,
+                        },
+                        "inputs": {"source": {"input": "source"}},
+                    }
+                },
+            }
+        },
+    }
+    return f
+
+
+CALL_SITE_RE = re.compile(r'\.[QN]\(\s*"\((?P<id>[a-z][a-z0-9-]*)\s+(?P<args>:[^"]*?)"\s*,')
+
+
+def _call_args(text: str) -> dict:
+    """`:name value` pairs from a call, values possibly parenthesised."""
+    out, i = {}, 0
+    while True:
+        m = re.compile(r":([A-Za-z][A-Za-z0-9_]*)\s+").search(text, i)
+        if not m:
+            return out
+        name, j = m.group(1), m.end()
+        if j < len(text) and text[j] == "(":
+            depth, k = 0, j
+            while k < len(text):
+                if text[k] == "(":
+                    depth += 1
+                elif text[k] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                k += 1
+            out[name], i = text[j : k + 1], k + 1
+        else:
+            k = re.compile(r"[\s)]").search(text, j)
+            out[name] = text[j : k.start()] if k else text[j:]
+            i = k.start() if k else len(text)
+
+
+def call_site_defaults(filters: dict, sources: Path) -> int:
+    """Give a lambda the values the app invokes it with.
+
+    A lambda declares its knobs, usually by inheriting them from the filter it
+    forwards to, and the app then calls it with values of its own:
+
+        (white-infinite :source source1 :model3DTransform (mat4 ...))
+        (triangle-op-art :source source1 :intensity 5.0 ...)
+
+    The extraction kept the declaration and dropped the call, so these opened
+    at whatever the inherited knob happened to default to.  Where that is a
+    neutral value the filter does nothing at all: `triangle-op-art` sat at
+    intensity 0 against the app's 5, `star-kaleidoscope` at 0 against 1.11,
+    `etched-circles` at thickness 0 against 0.12.  `white-infinite` was the
+    one that made this visible -- it drew nothing once it reached the real
+    shader, because the transform it is called with had been lost.
+
+    Only scalars and short vectors are taken, and only where the shape
+    matches what is declared; a matrix wants the column-to-row turn that
+    `mat4` needs and is left to the entry that knows it.
+    """
+    def numbers(t):
+        return [float(x) for x in re.findall(r"-?\d+\.?\d*(?:[eE][-+]?\d+)?", t)]
+
+    def flat(v):
+        if isinstance(v, list):
+            out = []
+            for x in v:
+                out.extend(flat(x))
+            return out
+        return [float(v)] if isinstance(v, (int, float)) else []
+
+    changed = 0
+    for path in sources.rglob("*.java"):
+        text = path.read_text(errors="ignore")
+        for m in CALL_SITE_RE.finditer(text):
+            fid = m.group("id")
+            if fid not in filters:
+                continue
+            declared = {p["name"]: p for p in filters[fid]["params"]}
+            for name, raw in _call_args(m.group("args")).items():
+                p = declared.get(name)
+                if p is None or p.get("default") is None:
+                    continue
+                want, have = numbers(raw), flat(p["default"])
+                if not want or len(want) != len(have) or want == have:
+                    continue
+                if len(want) > 4:
+                    continue  # a matrix: see the docstring
+                p["default"] = want[0] if len(want) == 1 and not isinstance(
+                    p["default"], list
+                ) else want
+                changed += 1
+    return changed
+
+
 def main() -> None:
     shaders = json.loads(Path("work/shaders.json").read_text())
     raw_params = json.loads(Path("work/params.json").read_text())
@@ -835,6 +968,13 @@ def main() -> None:
                     [0.0, 0.0, 1.0, -1.0],
                     [0.0, 0.0, 0.0, 1.0],
                 ]
+
+    n_calls = call_site_defaults(filters, Path("work/decompiled/sources"))
+    if n_calls:
+        print(f"  {n_calls} defaults taken from the call the app makes")
+
+    if "glass-marble" in filters:
+        filters["glass-marble"] = glass_marble_spec(filters["glass-marble"])
 
     prefer_gl.add("mobius-torus")
     if prefer_gl:

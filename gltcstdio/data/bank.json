@@ -125830,7 +125830,7 @@
       1.0,
       1.0,
       1.0,
-      1.0
+      0.5
      ],
      "widget": "color"
     },
@@ -126750,7 +126750,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 5.0,
+     "default": 35.0,
      "min": -20.0,
      "max": 20.0,
      "widget": "slider"
@@ -126810,7 +126810,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 5.0,
+     "default": 35.0,
      "min": -20.0,
      "max": 20.0,
      "widget": "slider"
@@ -126965,7 +126965,7 @@
      "name": "shadows",
      "type": "float",
      "label": "Shadows",
-     "default": 0.0,
+     "default": 0.3355112469885959,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -127339,10 +127339,10 @@
      "type": "vec4",
      "label": "source",
      "default": [
-      14.0,
-      0.0,
-      0.0,
-      0.0
+      0.66,
+      0.66,
+      0.66,
+      1.0
      ],
      "widget": "color"
     },
@@ -127351,9 +127351,9 @@
      "type": "vec4",
      "label": "ambient",
      "default": [
-      1.0,
-      1.0,
-      1.0,
+      0.66,
+      0.66,
+      0.66,
       1.0
      ],
      "widget": "color"
@@ -127362,7 +127362,7 @@
      "name": "shadows",
      "type": "float",
      "label": "Shadows",
-     "default": 0.5,
+     "default": 0.1,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -127371,7 +127371,7 @@
      "name": "banding",
      "type": "float",
      "label": "Banding",
-     "default": 30.0,
+     "default": 2.4,
      "min": 0.1,
      "max": 1000.0,
      "widget": "slider"
@@ -127497,7 +127497,7 @@
      "name": "saturation",
      "type": "float",
      "label": "Saturation",
-     "default": 0.0,
+     "default": 0.32844606509878616,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -127516,7 +127516,7 @@
      "name": "smoothen",
      "type": "float",
      "label": "Smooth",
-     "default": 0.0,
+     "default": 0.005,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -127576,7 +127576,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.15,
+     "default": 0.9500994403545678,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -127666,7 +127666,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 10.0,
+     "default": 20.0,
      "min": -100.0,
      "max": 100.0,
      "widget": "slider"
@@ -127983,7 +127983,7 @@
      "name": "tolerance",
      "type": "float",
      "label": "Tolerance",
-     "default": 0.3,
+     "default": 0.25,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -127992,7 +127992,7 @@
      "name": "mode",
      "type": "int",
      "label": "Mode",
-     "default": 1,
+     "default": 3.0,
      "min": 1.0,
      "max": 10.0,
      "widget": "int_slider"
@@ -128051,7 +128051,7 @@
      "name": "target",
      "type": "float",
      "label": "Target",
-     "default": 0.0,
+     "default": 1.0,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -128101,7 +128101,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 5.0,
+     "default": 0.8,
      "min": -20.0,
      "max": 20.0,
      "widget": "slider"
@@ -128483,7 +128483,7 @@
      "name": "brightness",
      "type": "float",
      "label": "Brightness",
-     "default": 0.0,
+     "default": 0.14106445312499993,
      "min": -1.0,
      "max": 2.0,
      "step": 4.0,
@@ -128493,7 +128493,7 @@
      "name": "contrast",
      "type": "float",
      "label": "Contrast",
-     "default": 1.0,
+     "default": 0.8209206214317913,
      "min": -12.0,
      "max": 2.0,
      "step": 8.0,
@@ -128503,7 +128503,7 @@
      "name": "tone",
      "type": "float",
      "label": "Intensity",
-     "default": 1.0,
+     "default": 0.5,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -128781,7 +128781,7 @@
      "name": "padding",
      "type": "float",
      "label": "Padding",
-     "default": 0.0,
+     "default": 0.058,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -128790,7 +128790,7 @@
      "name": "thickness",
      "type": "float",
      "label": "Thickness",
-     "default": 0.0,
+     "default": 0.12,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -128969,7 +128969,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.2,
+     "default": 0.4,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -129212,7 +129212,7 @@
      "name": "intensity",
      "type": "float",
      "label": "dust",
-     "default": 0.25,
+     "default": 0.15,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -129221,7 +129221,7 @@
      "name": "noiseIntensity",
      "type": "float",
      "label": "noise",
-     "default": 0.25,
+     "default": 0.07,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -129230,7 +129230,7 @@
      "name": "brightness",
      "type": "float",
      "label": "Brightness",
-     "default": 0.0,
+     "default": 0.028,
      "min": -1.0,
      "max": 2.0,
      "step": 4.0,
@@ -129443,7 +129443,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.15,
+     "default": -0.715,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -129697,7 +129697,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 5.0,
+     "default": 3.0,
      "min": -20.0,
      "max": 20.0,
      "widget": "slider"
@@ -129707,10 +129707,10 @@
      "type": "vec4",
      "label": "source",
      "default": [
-      14.0,
-      0.0,
-      0.0,
-      0.0
+      1.0,
+      1.0,
+      1.0,
+      1.0
      ],
      "widget": "color"
     },
@@ -130090,18 +130090,51 @@
    "backend": "graph",
    "graph": {
     "filter": "adjust",
-    "inputs": {
-     "source": {
-      "input": "source"
-     }
-    },
     "params": {
      "brightness": 0.12,
-     "contrast": 1.12
+     "contrast": 1.12,
+     "vignette_intensity": 0.35,
+     "vignette_hardness": 0.3,
+     "vignette_color": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    "inputs": {
+     "source": {
+      "filter": "lens-blur",
+      "params": {
+       "radius": 0.015,
+       "hardness": 0.35
+      },
+      "inputs": {
+       "source": {
+        "filter": "globe",
+        "params": {
+         "intensity": {
+          "bind": "intensity"
+         },
+         "modelTransform": {
+          "bind": "modelTransform"
+         },
+         "power": 2.0
+        },
+        "inputs": {
+         "source": {
+          "input": "source"
+         }
+        }
+       }
+      }
+     }
     }
    },
    "chain": [
-    "adjust"
+    "adjust",
+    "lens-blur",
+    "globe"
    ],
    "params": [
     {
@@ -130515,7 +130548,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.15,
+     "default": -0.3,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -130864,7 +130897,7 @@
      "name": "saturation",
      "type": "float",
      "label": "Saturation",
-     "default": 0.0,
+     "default": 0.15,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -130885,7 +130918,7 @@
      "name": "border",
      "type": "float",
      "label": "Border",
-     "default": 0.1,
+     "default": 0.04,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -131014,7 +131047,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.1,
+     "default": 0.357,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -131334,7 +131367,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.1,
+     "default": 0.15,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -131540,7 +131573,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 5.0,
+     "default": 12.0,
      "min": -20.0,
      "max": 20.0,
      "widget": "slider"
@@ -131549,7 +131582,7 @@
      "name": "rezolution",
      "type": "int",
      "label": "resolution",
-     "default": 100,
+     "default": 120.0,
      "min": 1.0,
      "max": 180,
      "widget": "int_slider"
@@ -131832,7 +131865,7 @@
      "name": "iterations",
      "type": "int",
      "label": "iterations",
-     "default": 50,
+     "default": 26.0,
      "min": 1.0,
      "max": 100.0,
      "step": 0.4,
@@ -131963,7 +131996,7 @@
      "name": "contrast",
      "type": "float",
      "label": "Contrast",
-     "default": 0.6,
+     "default": 0.35,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -133012,7 +133045,7 @@
      "name": "intensity",
      "type": "float",
      "label": "noise",
-     "default": 0.25,
+     "default": 0.298,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -133021,7 +133054,7 @@
      "name": "saturation",
      "type": "float",
      "label": "Saturation",
-     "default": 0.25,
+     "default": 0.32,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -133358,7 +133391,7 @@
      "name": "coverage",
      "type": "float",
      "label": "Coverage",
-     "default": 0.2,
+     "default": 0.25,
      "min": 0.0,
      "max": 2.0,
      "widget": "slider"
@@ -133752,7 +133785,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.35,
+     "default": 0.2,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -133943,7 +133976,7 @@
      "name": "intensity",
      "type": "float",
      "label": "noise",
-     "default": 0.25,
+     "default": 0.14325493426362348,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -133952,7 +133985,7 @@
      "name": "cellsIntensity",
      "type": "float",
      "label": "spread",
-     "default": 0.1,
+     "default": 0.02270168588181174,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -134401,7 +134434,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.15,
+     "default": -0.47,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -140522,7 +140555,7 @@
      "name": "dampening",
      "type": "float",
      "label": "Dampening",
-     "default": 0.2,
+     "default": 0.18,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -140688,7 +140721,7 @@
      "name": "dampening",
      "type": "float",
      "label": "Dampening",
-     "default": 0.2,
+     "default": 0.18,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -146406,7 +146439,7 @@
      "name": "count",
      "type": "int",
      "label": "Count",
-     "default": 20,
+     "default": 70.0,
      "min": 1.0,
      "max": 263,
      "step": 0.2,
@@ -146416,7 +146449,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.15,
+     "default": 0.2,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -146578,7 +146611,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.1,
+     "default": 0.14460843599759624,
      "min": -1.0,
      "max": 1.0,
      "widget": "slider"
@@ -146587,7 +146620,7 @@
      "name": "border",
      "type": "float",
      "label": "Border",
-     "default": 0.1,
+     "default": 0.06152343749999991,
      "min": 0.0,
      "max": 0.3,
      "widget": "slider"
@@ -146597,9 +146630,9 @@
      "type": "vec4",
      "label": "color out",
      "default": [
-      0.0,
-      0.0,
-      0.0,
+      1.0,
+      1.0,
+      1.0,
       1.0
      ],
      "widget": "color"
@@ -146957,7 +146990,7 @@
      "name": "iterations",
      "type": "int",
      "label": "iterations",
-     "default": 1,
+     "default": 7.0,
      "min": 1.0,
      "max": 100.0,
      "step": 0.5,
@@ -146967,7 +147000,7 @@
      "name": "intensity",
      "type": "float",
      "label": "intensity",
-     "default": 10.0,
+     "default": 4.11802685950414,
      "min": 0.0,
      "max": 10.0,
      "widget": "slider"
@@ -146976,7 +147009,7 @@
      "name": "randomSeed",
      "type": "float",
      "label": "random seed",
-     "default": 0.0,
+     "default": 95.95009039256203,
      "min": -1000000.0,
      "max": 1000000.0,
      "widget": "slider"
@@ -146998,7 +147031,7 @@
       0.0,
       0.0,
       0.0,
-      1.0
+      0.0
      ],
      "widget": "color"
     },
@@ -147010,7 +147043,7 @@
       1.0,
       1.0,
       1.0,
-      1.0
+      0.99986047
      ],
      "widget": "color"
     },
@@ -147450,10 +147483,10 @@
      "type": "vec4",
      "label": "grid color",
      "default": [
-      0.1,
-      1.0,
-      0.55,
-      1.0
+      0.38431373,
+      0.7294118,
+      0.6901961,
+      0.32050213
      ],
      "widget": "color"
     },
@@ -148370,7 +148403,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.3,
+     "default": -0.32,
      "min": -0.5,
      "max": 0.5,
      "widget": "slider"
@@ -148402,7 +148435,7 @@
      "name": "spikeCount",
      "type": "int",
      "label": "spike count",
-     "default": 20,
+     "default": 38.0,
      "min": 1.0,
      "max": 100.0,
      "step": 0.2,
@@ -149602,7 +149635,7 @@
      "name": "intensity",
      "type": "float",
      "label": "stretch",
-     "default": 0.0,
+     "default": 1.1130151669841155,
      "min": -0.5,
      "max": 0.5,
      "widget": "slider"
@@ -149657,7 +149690,7 @@
      "name": "shadows",
      "type": "float",
      "label": "Shadows",
-     "default": 0.0,
+     "default": 0.4,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -149749,7 +149782,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.5,
+     "default": 0.2,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -149758,7 +149791,7 @@
      "name": "count",
      "type": "int",
      "label": "stars",
-     "default": 1,
+     "default": 28.0,
      "min": 1.0,
      "max": 100.0,
      "step": 0.1,
@@ -150347,7 +150380,7 @@
      "name": "gamma",
      "type": "float",
      "label": "Gamma",
-     "default": 0.0,
+     "default": 0.2120970418630553,
      "min": -3.0,
      "max": 3.0,
      "widget": "slider"
@@ -150356,7 +150389,7 @@
      "name": "contrast",
      "type": "float",
      "label": "Contrast",
-     "default": 1.0,
+     "default": 1.102049031533486,
      "min": -12.0,
      "max": 2.0,
      "step": 8.0,
@@ -150366,7 +150399,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 5.0,
+     "default": 15.0,
      "min": -20.0,
      "max": 20.0,
      "widget": "slider"
@@ -150376,10 +150409,10 @@
      "type": "vec4",
      "label": "source",
      "default": [
-      14.0,
-      0.0,
-      0.0,
-      0.0
+      1.0,
+      1.0,
+      1.0,
+      1.0
      ],
      "widget": "color"
     },
@@ -150540,7 +150573,7 @@
      "name": "radius",
      "type": "float",
      "label": "Circle",
-     "default": 0.30000001192092896,
+     "default": 0.32092629084220325,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -150637,7 +150670,7 @@
      "name": "distortion",
      "type": "float",
      "label": "Distortion",
-     "default": 0.0,
+     "default": 30.0,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
@@ -150748,7 +150781,7 @@
      "name": "intensity",
      "type": "float",
      "label": "Intensity",
-     "default": 0.0,
+     "default": 5.0,
      "min": -100.0,
      "max": 100.0,
      "widget": "slider"
@@ -151456,7 +151489,7 @@
      "name": "hardness",
      "type": "float",
      "label": "Hardness",
-     "default": 0.5,
+     "default": 0.22,
      "min": 0.0,
      "max": 1.0,
      "widget": "slider"
