@@ -72,35 +72,58 @@ impl Plane {
 }
 
 /// Convolve along one axis: 0 is vertical, 1 is horizontal.
+///
+/// One line and one channel at a time, copied into a buffer that already
+/// carries the edge padding, so the inner loop is a dot product of two
+/// contiguous slices with no bounds to test and no branch to take.  That is
+/// what makes a wide kernel affordable: at sigma 128 it is 769 taps per
+/// output, and clamping each of them against the image, as a single indexed
+/// loop must, costs more than the multiply it guards -- 1.7 s against 0.65 s
+/// for a 512x512 image at that width.
+///
+/// Pairing the symmetric taps to halve the multiplies was tried and is
+/// slower: it needs the channels interleaved in the inner loop, and the
+/// vectoriser does more with the flat `zip` than it loses to the extra work.
 pub fn convolve1d(p: &Plane, k: &[f32], axis: usize) -> Plane {
-    let pad = (k.len() / 2) as i64;
+    let pad = k.len() / 2;
+    let (w, h, ch) = (p.width, p.height, p.channels);
     let mut out = vec![0.0f32; p.data.len()];
-    for y in 0..p.height {
-        for x in 0..p.width {
-            for c in 0..p.channels {
+    let (span, lines) = if axis == 1 { (w, h) } else { (h, w) };
+    let step = if axis == 1 { ch } else { w * ch };
+
+    let mut line = vec![0.0f32; span + 2 * pad];
+    for l in 0..lines {
+        let head = if axis == 1 { l * w * ch } else { l * ch };
+        for c in 0..ch {
+            for (i, slot) in line.iter_mut().enumerate() {
+                // `mode="edge"`: the ends repeat rather than fade to black.
+                let at = (i as i64 - pad as i64).clamp(0, span as i64 - 1) as usize;
+                *slot = p.data[head + at * step + c];
+            }
+            for i in 0..span {
+                let window = &line[i..i + k.len()];
                 let mut acc = 0.0;
-                for (i, w) in k.iter().enumerate() {
-                    let off = i as i64 - pad;
-                    let (sx, sy) = if axis == 1 {
-                        (x as i64 + off, y as i64)
-                    } else {
-                        (x as i64, y as i64 + off)
-                    };
-                    acc += w * p.clamped(sx, sy, c);
+                for (weight, value) in k.iter().zip(window) {
+                    acc += weight * value;
                 }
-                out[(y * p.width + x) * p.channels + c] = acc;
+                out[head + i * step + c] = acc;
             }
         }
     }
     Plane {
-        width: p.width,
-        height: p.height,
-        channels: p.channels,
+        width: w,
+        height: h,
+        channels: ch,
         data: out,
     }
 }
 
 /// A two-pass Gaussian blur.
+///
+/// Blurring at reduced resolution was tried, since the cost grows with sigma
+/// and a wide blur leaves no detail finer than the scale that would be
+/// dropped.  It is not close enough: at radius 0.08 it moved 9% of the image
+/// by more than 2/255 and the worst pixel by 128.  The cost stays.
 pub fn gaussian(p: &Plane, sigma: f32) -> Plane {
     if sigma <= 0.0 {
         return Plane {
@@ -324,4 +347,67 @@ pub fn gloss_texture(img: &Image, v: &Values, _: &Inputs) -> Image {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The convolution written the obvious way: for every output, read every
+    /// tap straight out of the plane.  `convolve1d` copies each line into a
+    /// padded buffer first so its inner loop is a contiguous dot product,
+    /// which is several times quicker and must land on the same numbers.
+    fn directly(p: &Plane, k: &[f32], axis: usize) -> Plane {
+        let pad = (k.len() / 2) as i64;
+        let (w, h, ch) = (p.width, p.height, p.channels);
+        let (span, lines) = if axis == 1 { (w, h) } else { (h, w) };
+        let step = if axis == 1 { ch } else { w * ch };
+        let mut out = vec![0.0f32; p.data.len()];
+        for l in 0..lines {
+            let head = if axis == 1 { l * w * ch } else { l * ch };
+            for c in 0..ch {
+                for i in 0..span {
+                    let mut acc = 0.0;
+                    for (j, weight) in k.iter().enumerate() {
+                        let at = (i as i64 + j as i64 - pad).clamp(0, span as i64 - 1);
+                        acc += weight * p.data[head + at as usize * step + c];
+                    }
+                    out[head + i * step + c] = acc;
+                }
+            }
+        }
+        Plane { width: w, height: h, channels: ch, data: out }
+    }
+
+    fn a_plane(w: usize, h: usize, ch: usize) -> Plane {
+        // Something with structure in both axes and in every channel, so a
+        // transposed or channel-crossed read would show up.
+        let data = (0..w * h * ch)
+            .map(|i| {
+                let (x, y, c) = ((i / ch) % w, (i / ch) / w, i % ch);
+                ((x * 7 + y * 13 + c * 29) % 251) as f32 / 251.0
+            })
+            .collect();
+        Plane { width: w, height: h, channels: ch, data }
+    }
+
+    #[test]
+    fn the_padded_convolution_is_the_plain_one() {
+        // Kernels wider than the image exercise the clamped ends, which is
+        // where a padded buffer is easiest to get wrong.
+        for (w, h, ch) in [(16, 9, 4), (9, 16, 3), (1, 5, 4), (5, 1, 4), (2, 2, 1)] {
+            let p = a_plane(w, h, ch);
+            for taps in [1usize, 3, 8, 21] {
+                let k: Vec<f32> = (0..taps).map(|i| (i + 1) as f32 / taps as f32).collect();
+                for axis in [0, 1] {
+                    let fast = convolve1d(&p, &k, axis);
+                    let plain = directly(&p, &k, axis);
+                    assert_eq!(
+                        fast.data, plain.data,
+                        "{w}x{h}x{ch}, {taps} taps, axis {axis}"
+                    );
+                }
+            }
+        }
+    }
 }

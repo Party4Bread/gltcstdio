@@ -781,7 +781,7 @@ vec2 torusKnotBoundingSphereK(vec3 center, float radius, vec3 origin, vec3 dir) 
 vec3 torusKnotRayMarch(vec3 origin, vec3 dir, float radius, float count, vec4 glowColor) {
     // Pap only applies the bounding-sphere early-out when glow is black (otherwise we need
     // to compute minDist across space even for rays that miss). Unit conversion: Pap's
-    // 0.5*(1 + 1.25 + u_Radius*0.02) becomes 0.5*(2.25 + radius) in gltcstdio units.
+    // 0.5*(1 + 1.25 + u_Radius*0.02) becomes 0.5*(2.25 + radius) in bank units.
     float minDist = 1e9;
     float k = 0.0;
     if (glowColor.r == 0.0 && glowColor.g == 0.0 && glowColor.b == 0.0) {

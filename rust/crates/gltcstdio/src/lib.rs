@@ -165,6 +165,21 @@ impl Renderer {
         }
     }
 
+    /// Why the GPU device was taken away, if it was.
+    ///
+    /// Once lost, nothing here can bring it back -- the page has to be
+    /// reloaded, and if the browser's GPU process went with it, restarted.
+    pub fn device_lost(&self) -> Option<String> {
+        #[cfg(feature = "gpu")]
+        {
+            self.gpu.as_ref().and_then(|g| g.lost())
+        }
+        #[cfg(not(feature = "gpu"))]
+        {
+            None
+        }
+    }
+
     /// Release the images the renderer is holding on the device.
     ///
     /// Uploads are kept by content so a repeated render skips rebuilding the

@@ -773,7 +773,7 @@ float qsHeight(float intensity, vec4 color) {
             );
 
             // Pap: intensity = pow(u_Intensity * 0.01, 4.0) * 100.0 (applied in the planar() entry).
-            // gltcstdio IntensityRel100 is on a -100..100 scale, same as Pap's slider.
+            // IntensityRel100 uses a -100..100 scale, matching the source slider.
             float intensityScaled = pow(intensity * 0.01, 4.0) * 100.0;
             // Sign of u_Intensity is lost by the pow(…, 4.0); Pap reproduces it via abs(intensity)
             // in maxZ. Keep abs(intensity) in maxZ just like Pap.

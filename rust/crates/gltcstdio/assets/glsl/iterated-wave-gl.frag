@@ -764,7 +764,7 @@ vec4 iteratedWaveGL(vec2 pos, vec2 outPos, float intensity, int count, float reg
     // getTransform(modelX, modelY, modelScale, PHASE2 = PI/4)`: same translation and
     // scale as modelTransform, rotation PINNED at 45° (independent of MODEL_ANGLE).
     // Build it as scale·R(45°) with the translation column copied VERBATIM from
-    // modelTransform — identical to the shipping gltcstdio `WaveFlow`. This preserves
+    // modelTransform — identical to the reference `WaveFlow`. This preserves
     // the pan (Tx/Ty): a previous form `rotation3(PI/4) * modelTransform` rotated the
     // WHOLE matrix incl. its translation column, so pan landed in the wave-invariant
     // y-axis and cancelled on odd iterations ("y touch translation does nothing"); it

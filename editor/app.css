@@ -593,3 +593,15 @@ h3.group {
 
 #blockerLead { color: var(--text); font-size: 13.5px; line-height: 1.5; }
 #blockerWhy { font-size: 11.5px; opacity: .75; }
+
+/* A control the render proved does nothing where the chain currently sits.
+   Dimmed rather than disabled: it may come alive as other values move. */
+.param.inert > label { opacity: 0.45; }
+.param.inert > label::after {
+  content: 'no effect';
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

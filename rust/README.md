@@ -112,6 +112,21 @@ intermediates are 176 MB, past the budget, so nothing survives to the next
 render — editing that chain still costs 33 ms, because only the stages after
 the one being edited are new.
 
+What is left of the slow tail is one filter, not many. `gaussian-blur2` is
+the only thing in the bank that costs more than a quarter second at any real
+size, and the 21 blur wrappers and the chains over them all route through it:
+it is 200 ms at radius 0.02 and 1.6 s at 0.12 on a 900x900 image, growing
+with the radius. It should not be a CPU filter at all --
+`effects/blur/GaussianBlur.java` registers it as `(gaussian-blurh
+(gaussian-blurv source radius) radius)` over two shaders that were recovered,
+and those cost 3.8 ms whatever the radius. They cannot be used yet: they are
+three of the shaders written against the engine's earlier uniform convention,
+reading the source through `u_SourceTransform`, and both renderers bind that
+to the identity matrix. The coordinate they are handed spans world units, so
+they sample the texture at those coordinates directly and shift the image by
+half a frame rather than blurring it. `examples/blurcheck.rs` measures both
+sides and its comment says what binding that uniform correctly would take.
+
 The cache is exact rather than approximate: a texture is reused only for
 identical pixels, and `the_upload_cache_changes_nothing` renders all 769
 filters through a renderer holding other images to prove it. It holds at most
@@ -199,8 +214,9 @@ The list is measured, not guessed: `Filters.compile_check()` builds every
 pipeline and reports what the browser refused, and its output is
 `tools/webgpu_uniformity.json`. 462 of 463 shaders compile in Chrome today.
 The one that does not, `flower`, takes a gradient inside a conditional nested
-too deep to lift; it reports the driver's message rather than drawing a blank
-frame, which is what any refused shader now does. Three curated looks are
+too deep to lift. It says so in a sentence rather than drawing a blank frame,
+keeping the driver's own message on hover, which is what any refused shader
+now does. Three curated looks are
 built on it -- `glory`, `radiate` and `seraphim` -- so those are the only
 three of the 175 a browser cannot show.
 
@@ -281,16 +297,22 @@ Resampling is bilinear where the Python build uses Lanczos.
 ## Tests
 
 ```bash
-cargo test --release            # 16 tests; the GPU ones skip without a device
+cargo test --release            # 17 tests; the GPU ones skip without a device
 cargo run --release --example sweep -- in.rgba 256 256 out/
 cargo run --release --example hop_cost
+cargo run --release --example slowest -- 900 25
 ```
 
 `sweep` renders every filter from a raw RGBA8 file and reports what failed,
 which is how the fidelity numbers were measured; `hop_cost` is where the
-speed figures come from.
+speed figures come from. `slowest` times every filter at the size the editor
+previews at and lists the worst, which is what a report of lag gets checked
+against: 769 filters, 6.4 ms median, and 33 of them over 250 ms.
 
-Three of the tests are about the claims above rather than about a filter:
+Four of the tests are about the claims above rather than about a filter:
+`the_padded_convolution_is_the_plain_one` holds the CPU blur's padded inner
+loop to the same numbers as the convolution written the obvious way, at sizes
+and kernel widths including those wider than the image;
 `the_upload_cache_changes_nothing` renders all 769 through a renderer holding
 other images, `a_resolved_look_renders_as_the_look` compares every curated
 look against its resolved chain, and `renders_at_awkward_sizes` covers the

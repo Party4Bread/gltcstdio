@@ -717,7 +717,7 @@ struct Tile {
 
 // Pap GLSL: getOffsetPos from glitch_rgb_channel_offset.glsl.
 // pap2mp's mat3 is the forward (user-facing) transform, so we invert in-shader
-// — matches the gltcstdio RGBOffset convention. Scale fixed at 1.0 (Pap original
+// — matches the bank's RGBOffset convention. Scale fixed at 1.0 (the original
 // has no scale param).
 
 

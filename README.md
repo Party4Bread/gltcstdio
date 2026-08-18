@@ -307,6 +307,27 @@ so a long chain shows where the look came from as well as where it arrived.
   editable, which is how the app builds a look rather than a fixed result.
 - Presets load into the selected node's sliders, so one is a starting point
   rather than an end state.
+- The 28 shaders that sample no image show no input at all: they draw their
+  own picture, so they start a chain rather than continuing one, and the port
+  they used to carry did nothing.
+- Everything carries a tooltip built from what the bank knows -- where a
+  filter came from, how faithful it is, what a parameter's range and default
+  are, what each input takes -- rather than prose written about it. The app
+  ships no descriptions, and none are invented here.
+- Controls that change nothing where the chain currently stands are marked
+  **no effect**, measured rather than declared: each is moved to a clearly
+  different value and the render compared, and only a byte-identical result
+  counts, so nothing subtle is called dead. `basic-ray-marcher` is the base of
+  the ray-marching family and marches no shape, so 6 of its 11 controls have
+  nothing to act on; `halftone` has none.
+- A filter a browser refuses says so in a sentence, keeping the driver's own
+  message on hover.
+
+The preview renders at up to 900 pixels rather than at the image's full size.
+The canvas shows a few hundred, and a chain redrawn on every slider step was
+spending most of its time on detail nobody could see: `height-map-wireframe-gl`
+took 26.6 s and now takes about a second. **Download** renders the chain again
+at the image's real size, so what is saved is never the preview.
 
 The whole graph goes to the wasm module in one call, and the engine renders it
 by the same path a curated look takes, so a chain built here and a chain in

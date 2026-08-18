@@ -77,6 +77,13 @@ server behind it.
   inside a conditional nested too deep to lift, which WGSL forbids. The three
   curated looks built on it — `glory`, `radiate`, `seraphim` — cannot render
   in the editor. They work natively.
+- Three shaders written against the engine's earlier uniform convention --
+  `blur`, `gaussian-blurh` and `gaussian-blurv` -- read the source through a
+  transform both renderers bind to the identity matrix, so they translate the
+  image rather than sampling it. Until that is bound correctly, `gaussian-blur2`
+  keeps a CPU reimplementation of what the app builds from those two shaders,
+  which is the slowest thing in the bank and the whole of the editor's
+  remaining lag. `examples/blurcheck.rs` measures it.
 - The same bank also runs through a Python package (moderngl/EGL) and a Rust
   crate with PyO3 bindings. Those are how the editor is built, not competing
   products.
@@ -112,8 +119,8 @@ assets, or metadata.
    node or a control on a node. A second image is a node, not a setting beside
    the canvas.
 3. **Completeness is not optional.** Every filter, parameter and preset is
-   reachable and works. A filter that cannot render says why, in the words the
-   driver used.
+   reachable and works. A filter that cannot render says why in words its user
+   can act on, with the driver's own message still reachable.
 4. **Implementation detail is available, never required.** Which backend and
    how faithful a filter is are findable in the developer docs and absent from
    the surface of someone who just wants to make an image.

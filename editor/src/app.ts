@@ -33,6 +33,11 @@ const state = {
   /** Names the bank uses for more than one filter, which the list qualifies. */
   ambiguous: new Set<string>(),
   source: null as Bitmap | null,
+  /** The source at preview size: what the chain is rendered from while you
+   *  work. The canvas shows a few hundred pixels, so rendering a 1400px
+   *  image through a CPU filter spends most of its time on detail nobody
+   *  sees. Download renders the full one. */
+  preview: null as Bitmap | null,
   /** Bumped whenever a new image is opened, to invalidate the thumbnails. */
   sourceId: 0,
   /** Bumped when an image node's picture changes, to redo the thumbnails. */
@@ -43,6 +48,15 @@ const state = {
   gpu: null as Filters | null,
   view: { x: 40, y: 30, k: 1 },
   thumbs: 0,
+  /** Bumped to abandon a liveness probe whose node or values moved on. */
+  probe: 0,
+  /** Controls on the selected node that leave the image untouched as it
+   *  currently stands, measured rather than declared. */
+  inert: new Set<string>(),
+  /** Which node that answer is about. Controls are rebuilt on selection
+   *  before the new probe has run, and the last node's answer does not
+   *  describe this one. */
+  inertFor: null as string | null,
 };
 
 /** The page's own elements; every id here exists in `index.html`. */
@@ -112,15 +126,64 @@ function renderList(): void {
     cat.className = 'cat';
     cat.textContent = f.category;
     li.appendChild(cat);
-    li.title = isLook(f)
-      ? `${f.id} — a chain of ${chainLength(f.id)} filters; loads as nodes`
-      : f.wrapped
-      ? `${f.id} — ${f.wrapped} with its blur control`
-      : f.id;
+    li.title = describeFilter(f);
     li.onclick = () => (isLook(f) ? loadChain(f) : addNode(f.id));
     frag.appendChild(li);
   }
   ul.appendChild(frag);
+}
+
+/** What a filter is, in the terms the bank actually knows.
+ *
+ *  The app ships no descriptions -- its parameters carry a label, a range and
+ *  a default and nothing else -- so rather than invent prose about what 769
+ *  filters do, this states what is on record: where the filter came from, how
+ *  faithful it is, and what it is built out of. */
+function describeFilter(f: FilterSpec): string {
+  const bits: string[] = [f.category];
+  if (f.wrapped) {
+    const blend = f.params.some((p) => p.name.startsWith('locus'));
+    bits.push(blend
+      ? `the app's own graph around ${f.wrapped}, confining it to a region`
+      : `the app's own graph around ${f.wrapped}, feeding one of its inputs `
+        + 'from a blurred copy of the source');
+  } else if (f.backend === 'graph') {
+    bits.push(`a chain of ${chainLength(f.id)} filters, which opens as its own nodes`);
+  } else if (f.backend === 'cpu') {
+    bits.push('a CPU filter');
+  } else {
+    bits.push("the app's own shader, unmodified");
+  }
+  if (f.fidelity === 'reimplemented') {
+    bits.push('reimplemented: the parameters are the app\'s, the algorithm is not, '
+      + 'so the output will not match it pixel for pixel');
+  } else if (f.fidelity === 'recovered') {
+    bits.push('recovered from the decompiled source');
+  }
+  const extra = portsOf(f.id).slice(1);
+  if (extra.length) bits.push(`also reads ${extra.join(' and ')}`);
+  if (!portsOf(f.id).length) bits.push('takes no image: it draws its own picture');
+  return `${f.name}  (${f.id})\n${bits.join('\n')}`;
+}
+
+/** A parameter, in the terms the bank knows: type, range, default. */
+function describeParam(p: ParamSpec): string {
+  const bits: string[] = [p.type];
+  if (p.min !== null && p.max !== null) bits.push(`${p.min} to ${p.max}`);
+  if (p.default !== null && !Array.isArray(p.default)) bits.push(`default ${p.default}`);
+  if (p.engine) {
+    bits.push('applied by the engine around every filter, not by the filter itself');
+  }
+  if (p.choices?.length) bits.push(p.choices.map((c) => c.label).join(', '));
+  return `${p.label || p.name}  (${p.name})\n${bits.join('\n')}`;
+}
+
+/** What an input port takes. */
+function describePort(port: string, primary: boolean): string {
+  return primary
+    ? `${port}\nthe image flowing through the chain`
+    : `${port}\na second image this filter reads. Leave it unwired and the `
+      + 'filter falls back to the image on its main input.';
 }
 
 /** A curated look: a graph to open as its own nodes, not a single filter.
@@ -150,7 +213,9 @@ function chainLength(id: string): number {
 /** A filter's image inputs, the one flowing through the chain first. */
 function portsOf(filterId: string): string[] {
   const spec = state.byId.get(filterId);
-  if (spec?.ports?.length) return spec.ports;
+  // An empty list is an answer, not a missing one: 29 shaders sample no image
+  // and take no input.
+  if (Array.isArray(spec?.ports)) return spec.ports;
   return ['source', ...(spec?.extraInputs ?? []).filter((n) => n !== 'source')];
 }
 
@@ -231,9 +296,12 @@ function addNode(filterId: string, at?: Point): string | undefined {
   });
 
   // A new node joins the end of the chain rather than floating unconnected,
-  // on the port its own shader reads the chain's image from.
+  // on the port its own shader reads the chain's image from.  A filter that
+  // samples no image has no such port: it draws its own picture, so it starts
+  // a chain instead of continuing one.
+  const ports = portsOf(filterId);
   const tail = chain.links.find((l) => l.to === 'out');
-  connect(tail ? tail.from : 'src', id, primaryPort(filterId));
+  if (ports.length) connect(tail ? tail.from : 'src', id, ports[0]);
   connect(id, 'out', 'source');
 
   select(id);
@@ -439,6 +507,9 @@ function ensureEnds(): void {
   }
   if (!chain.nodes.has('out')) {
     chain.nodes.set('out', { id: 'out', kind: 'output', x: 40, y: 250 });
+    // An empty chain passes the source through, so say so with a wire rather
+    // than leaving the result showing a picture nothing appears to feed.
+    if (!chain.links.some((l) => l.to === 'out')) connect('src', 'out', 'source');
   }
   // Keep the result to the right of everything else, level with whatever
   // feeds it, so the last wire runs straight rather than doubling back.
@@ -468,7 +539,9 @@ function nodeEl(node: ChainNode): HTMLElement {
     : node.kind === 'output' ? 'Result'
     : node.kind === 'image' ? (node.name || 'Image')
     : spec?.name ?? (node as FilterNode).filter;
-  if (node.kind === 'image') title.title = node.name || 'no image loaded';
+  title.title = spec ? describeFilter(spec)
+    : node.kind === 'image' ? (node.name || 'no image loaded')
+    : '';
   head.appendChild(title);
 
   if (node.kind === 'image') {
@@ -547,6 +620,16 @@ function portEl(node: ChainNode, port: string, dir: Dir): HTMLElement {
   if (filled) dot.classList.add('filled');
   const name = document.createElement('span');
   name.textContent = dir === 'out' ? 'out' : port;
+  row.title = dir === 'out'
+    ? (node.kind === 'source'
+        ? 'out\nthe image you opened, as the chain receives it'
+        : node.kind === 'image'
+        ? 'out\nthis picture, for any input you wire it to'
+        : 'out\nwhat this node produces; drag to another node to pass it on')
+    : node.kind === 'output'
+    ? 'source\nwhat the chain ends on -- this is what the preview shows and '
+      + 'what Download saves'
+    : describePort(port, node.kind === 'filter' && port === portsOf(node.filter)[0]);
   row.appendChild(dot);
   row.appendChild(name);
   dot.onpointerdown = (e) => startWire(e, node.id, port, dir);
@@ -715,6 +798,7 @@ function renderControls(): void {
   const node = selectedNode();
   const f = node ? state.byId.get(node.filter) : undefined;
   $('filterName').textContent = f ? f.name : 'No node selected';
+  $('filterName').title = f ? describeFilter(f) : '';
   $('resetBtn').hidden = !f;
 
   if (!f || !node) {
@@ -784,6 +868,8 @@ function renderControls(): void {
     box.appendChild(head);
     for (const p of engine) box.appendChild(control(p, node));
   }
+  // Controls rebuilt after a probe has already answered keep its answer.
+  markInert();
 }
 
 /** Load a preset into the node, so its sliders move and can be taken further. */
@@ -821,8 +907,10 @@ const asPalette = (v: Value): number[][] =>
 function control(p: ParamSpec, node: FilterNode): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'param';
+  wrap.dataset.param = p.name;
 
   const label = document.createElement('label');
+  label.title = describeParam(p);
   const title = document.createElement('span');
   title.textContent = p.label || p.name;
   label.appendChild(title);
@@ -866,24 +954,24 @@ function control(p: ParamSpec, node: FilterNode): HTMLElement {
   }
 
   if (p.type === 'vec4' && p.widget === 'color') {
-    val.textContent = '';
     const rgba = asVector(v);
+    const alpha = rgba[3] ?? 1;
+    // The browser's colour input has no alpha, so opacity is its own row --
+    // named, and showing its value, because an unlabelled slider under a
+    // swatch reads as decoration rather than as the transparency control.
+    val.textContent = `${Math.round(alpha * 100)}% opaque`;
     const c = document.createElement('input');
     c.type = 'color';
     c.value = toHex(rgba);
     c.oninput = () => setValue(p.name, fromHex(c.value, asVector(node.values[p.name])[3] ?? 1));
     wrap.appendChild(c);
-    const a = document.createElement('input');
-    a.type = 'range';
-    a.min = '0';
-    a.max = '1';
-    a.step = '0.01';
-    a.value = String(rgba[3] ?? 1);
-    a.title = 'Alpha';
-    a.oninput = () => {
+
+    const a = slider(0, 1, 0.01, alpha, 'opacity', (x) => {
       const cur = asVector(node.values[p.name]);
-      setValue(p.name, [cur[0], cur[1], cur[2], parseFloat(a.value)]);
-    };
+      val.textContent = `${Math.round(x * 100)}% opaque`;
+      setValue(p.name, [cur[0], cur[1], cur[2], x]);
+    });
+    a.title = 'Transparency of this colour';
     wrap.appendChild(a);
     return wrap;
   }
@@ -1035,19 +1123,19 @@ async function bindSources(gpu: Filters): Promise<void> {
 }
 
 function render(): void {
-  if (!state.source || !state.gpu) return;
+  if (!state.preview || !state.gpu) return;
   clearTimeout(timer);
   timer = setTimeout(doRender, 60) as unknown as number;   // debounce slider drags
 }
 
 async function doRender(): Promise<void> {
   const gpu = state.gpu;
-  if (!state.source || !gpu) return;
+  if (!state.preview || !gpu) return;
   const seq = ++state.seq;
   await bindSources(gpu);
   if (seq !== state.seq) return;
   const graph = toGraph();
-  const { width, height, data } = state.source;
+  const { width, height, data } = state.preview;
 
   if (!graph) {
     paint($<HTMLCanvasElement>('preview'), width, height, data);
@@ -1076,8 +1164,7 @@ async function doRender(): Promise<void> {
   } catch (err) {
     // A shader the browser refuses reports a whole page of WGSL; the first
     // line says what it objected to and the rest belongs in the console.
-    const why = String(err).split('\n')[0].replace(/^Error:\s*/, '');
-    $('statusText').textContent = why;
+    $('statusText').textContent = readable(err);
     $('statusText').title = String(err);
     console.warn(err);
   } finally {
@@ -1085,6 +1172,120 @@ async function doRender(): Promise<void> {
     if (seq === state.seq) $('spinner').hidden = true;
   }
   void thumbnails();
+  void probeInert();
+}
+
+/** Which of the selected node's controls do nothing where the chain now sits.
+ *
+ *  A filter can carry parameters its shader never reads: `basic-ray-marcher`
+ *  is the base the ray-marching family is built on, and marches no shape, so
+ *  its lighting, shadows and refraction have nothing to act on -- only the
+ *  background style shows. Rather than assert that anywhere, each control is
+ *  moved to a clearly different value and the result compared.
+ *
+ *  Only a byte-identical image counts, so this never calls a control dead for
+ *  being subtle. It says nothing about other settings either: a control that
+ *  does nothing while a switch above it is off is reported as it is now, and
+ *  re-measured when that switch moves. */
+async function probeInert(): Promise<void> {
+  const run = ++state.probe;
+  state.inert = new Set();
+  state.inertFor = null;
+  const node = selectedNode();
+  const gpu = state.gpu;
+  const spec = node ? state.byId.get(node.filter) : undefined;
+  if (!node || !gpu || !spec || !state.preview) return;
+  const graph = subGraph(node.id);
+  if (!graph) return;
+
+  // Small enough to be quick, large enough that a filter working at the scale
+  // of a few pixels still has room to show it.
+  const side = 192;
+  const { width, height, data } = state.preview;
+  const scale = Math.min(1, side / Math.max(width, height));
+  const w = Math.max(1, Math.round(width * scale));
+  const h = Math.max(1, Math.round(height * scale));
+  const small = downscale(data, width, height, w, h);
+
+  const draw = async (g: FilterGraph): Promise<Uint8Array | null> =>
+    onGpu(() => (run === state.probe
+      ? gpu.render_graph(JSON.stringify(g), small, w, h)
+      : null));
+
+  let base: Uint8Array | null;
+  try {
+    base = await draw(graph);
+  } catch {
+    return;
+  }
+  if (!base || run !== state.probe) return;
+
+  const dead: string[] = [];
+  for (const param of spec.params) {
+    if (run !== state.probe) return;
+    const other = otherValue(param, node.values[param.name]);
+    if (other === null) continue;
+    let out: Uint8Array | null;
+    try {
+      out = await draw({ ...graph, params: { ...graph.params, [param.name]: other } });
+    } catch {
+      continue;
+    }
+    if (!out || run !== state.probe) return;
+    if (same(base, out)) dead.push(param.name);
+  }
+  if (run !== state.probe) return;
+  state.inert = new Set(dead);
+  state.inertFor = node.id;
+  markInert();
+}
+
+function same(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** A value plainly different from the one a control holds, or null where one
+ *  cannot be picked confidently -- a matrix, a palette, a free string. */
+function otherValue(p: ParamSpec, current: Value): Value | null {
+  if (p.choices && p.choices.length > 1) {
+    const other = p.choices.find((c) => c.value !== current);
+    return other ? other.value : null;
+  }
+  if (p.type === 'float' || p.type === 'int') {
+    if (p.min === null || p.max === null || p.min === p.max) return null;
+    const now = typeof current === 'number' ? current : p.min;
+    // The far end from where it sits, so the move is as large as the range
+    // allows rather than a nudge that a coarse filter would round away.
+    const far = Math.abs(now - p.min) > Math.abs(now - p.max) ? p.min : p.max;
+    return p.type === 'int' ? Math.round(far) : far;
+  }
+  if (p.type === 'bool') return typeof current === 'number' ? (current ? 0 : 1) : 1;
+  if (p.type === 'vec4' || p.type === 'vec3' || p.type === 'vec2') {
+    const v = asVector(current);
+    if (!v.length) return null;
+    // Every component moved, and away from whatever it holds, so a colour
+    // already at one extreme still travels.
+    return v.map((n, i) => (i === 3 && p.type === 'vec4' ? n : n > 0.5 ? 0 : 1));
+  }
+  return null;
+}
+
+/** Put the probe's answer on the controls already on screen, without
+ *  rebuilding them: the pointer may be resting on one. */
+function markInert(): void {
+  const mine = state.inertFor === chain.selected;
+  for (const el of $('params').querySelectorAll<HTMLElement>('.param[data-param]')) {
+    const dead = mine && state.inert.has(el.dataset.param ?? '');
+    el.classList.toggle('inert', dead);
+    const label = el.querySelector('label');
+    if (!label) continue;
+    const base = label.title.split('\nthis control')[0];
+    label.title = dead
+      ? base + '\nthis control changes nothing where the chain now stands'
+      : base;
+  }
 }
 
 /** What each node's thumbnail currently shows, so it is drawn only once. */
@@ -1098,9 +1299,9 @@ const painted = new Map<string, string>();
  *  drag on a long chain to one render rather than one per node. */
 async function thumbnails(): Promise<void> {
   const gpu = state.gpu;
-  if (!state.source || !gpu) return;
+  if (!state.preview || !gpu) return;
   const run = ++state.thumbs;
-  const { width, height, data } = state.source;
+  const { width, height, data } = state.preview;
   const side = 160;
   const scale = Math.min(1, side / Math.max(width, height));
   const tw = Math.max(1, Math.round(width * scale));
@@ -1176,10 +1377,22 @@ async function readImage(file: File, limit = 1400): Promise<Bitmap> {
   };
 }
 
+/** The longest side the preview is rendered at. */
+const PREVIEW_MAX = 900;
+
+function previewOf(image: Bitmap): Bitmap {
+  const scale = Math.min(1, PREVIEW_MAX / Math.max(image.width, image.height));
+  if (scale === 1) return image;
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  return { width, height, data: downscale(image.data, image.width, image.height, width, height) };
+}
+
 async function loadFile(file: File | undefined): Promise<void> {
   if (!file || !file.type.startsWith('image/')) return;
   const image = await readImage(file);
   state.source = image;
+  state.preview = previewOf(image);
   state.sourceId += 1;
   paint($<HTMLCanvasElement>('original'), image.width, image.height, image.data);
   paint($<HTMLCanvasElement>('preview'), image.width, image.height, image.data);
@@ -1218,6 +1431,9 @@ function explainNoGpu(err: unknown): void {
         + 'browser with <code>--enable-unsafe-webgpu --enable-features=Vulkan</code>, '
         + 'and add <code>--ignore-gpu-blocklist</code> if the driver is blocklisted.',
         'Check <code>chrome://flags/#enable-unsafe-webgpu</code> is Enabled.',
+        'If this started after a GPU error and reloading will not clear it, the '
+        + 'browser\'s GPU process is down and a reload cannot restart it. Quit '
+        + 'the browser fully and open it again.',
         'A remote session, a VM without GPU passthrough, or a headless display '
         + 'will have no adapter to give.',
       ]
@@ -1315,16 +1531,7 @@ async function start(): Promise<void> {
     render();
   };
 
-  $('downloadBtn').onclick = () => {
-    $<HTMLCanvasElement>('preview').toBlob((blob) => {
-      if (!blob) return;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'gltcstdio-chain.png';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-  };
+  $('downloadBtn').onclick = () => void download();
 
   const wrap = $('canvasWrap');
   wrap.addEventListener('dragover', (e) => {
@@ -1375,6 +1582,63 @@ async function start(): Promise<void> {
     fit();
     applyView();
   };
+}
+
+/** A render failure in the reader's terms, where the failure is understood.
+ *
+ *  WGSL's own words are exact and unhelpful: someone here to make an image
+ *  cannot act on "'dpdy' must only be called from uniform control flow". The
+ *  driver's text stays on the element's title for anyone who wants it. */
+function readable(err: unknown): string {
+  const text = String(err);
+  if (/uniform control flow|dpdy|dpdx/.test(text)) {
+    return 'This filter cannot run in a browser: it takes a screen-space '
+      + 'gradient inside a branch, which WGSL forbids. It is not broken and '
+      + 'nothing here can enable it — the same filter works in the native '
+      + 'build.';
+  }
+  if (/device was lost|device lost/i.test(text)) {
+    return 'The GPU device was lost. Reload the page; if that does not help, '
+      + 'the browser\'s GPU process is down and only restarting the browser '
+      + 'will bring it back.';
+  }
+  return text.split('\n')[0].replace(/^Error:\s*/, '');
+}
+
+/** Save the chain at the image's own size, not the preview's.
+ *
+ *  The preview is deliberately small; what leaves should not be. */
+async function download(): Promise<void> {
+  const gpu = state.gpu;
+  const full = state.source;
+  if (!gpu || !full) return;
+  const graph = toGraph();
+  const was = $('statusText').textContent;
+  $('statusText').textContent = `rendering ${full.width}x${full.height}…`;
+  $('spinner').hidden = false;
+  let out = full.data;
+  try {
+    if (graph) {
+      out = await onGpu(() => gpu.render_graph(JSON.stringify(graph), full.data, full.width, full.height));
+    }
+  } catch (err) {
+    $('statusText').textContent = String(err).split('\n')[0].replace(/^Error:\s*/, '');
+    $('spinner').hidden = true;
+    return;
+  }
+  $('spinner').hidden = true;
+  $('statusText').textContent = was;
+
+  const canvas = document.createElement('canvas');
+  paint(canvas, full.width, full.height, out);
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'gltcstdio-chain.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
 }
 
 function applyView(): void {

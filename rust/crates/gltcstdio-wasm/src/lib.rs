@@ -93,7 +93,7 @@ impl Filters {
             .inner
             .apply_graph_with_sources_async(&node, &image, &Params::new(), &self.inputs)
             .await
-            .map_err(|e| JsError::new(&e.to_string()))?;
+            .map_err(|e| JsError::new(&self.explain(e)))?;
         Ok(out.data)
     }
 
@@ -127,6 +127,21 @@ impl Filters {
             }
         }
         serde_json::to_string(&failures).unwrap_or_else(|_| "[]".into())
+    }
+
+    /// A render failure, with the device's own state if it explains it.
+    ///
+    /// Once the device is gone every call fails, and the message that matters
+    /// is not the one the call produced.
+    fn explain(&self, e: gltcstdio::Error) -> String {
+        match self.inner.device_lost() {
+            Some(why) => format!(
+                "the GPU device was lost ({why}). Reload the page; if that does \
+                 not help, the browser's GPU process is down and only \
+                 restarting the browser will bring it back."
+            ),
+            None => e.to_string(),
+        }
     }
 
     /// Render through one of the filter's presets.
@@ -182,10 +197,19 @@ fn ports(spec: &FilterSpec) -> Vec<String> {
     };
     let primary = ["source", "source1"]
         .into_iter()
-        .find(|p| names.iter().any(|n| n == p))
-        .unwrap_or("source");
-    names.retain(|n| n != primary);
-    names.insert(0, primary.to_string());
+        .find(|p| names.iter().any(|n| n == p));
+    match primary {
+        Some(primary) => {
+            names.retain(|n| n != primary);
+            names.insert(0, primary.to_string());
+        }
+        // A shader that samples nothing takes no image: 28 of them generate
+        // their picture outright, and offering an input that cannot reach the
+        // shader invites wiring one up and watching it do nothing.  A CPU or
+        // graph filter is not a shader and always reads the image it is given.
+        None if spec.gpu.is_some() => {}
+        None => names.insert(0, "source".to_string()),
+    }
     names
 }
 

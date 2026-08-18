@@ -41,9 +41,16 @@ struct Prepared {
 
 /// How much of the device's memory the upload cache may hold.
 ///
+/// Smaller in a browser, where the GPU is shared with every other tab and the
+/// page cannot see how much is left.  Exhausting it takes the whole GPU
+/// process down, and no reload brings it back.
+///
 /// A chain re-rendered with one value changed reuses every input upstream of
 /// it, so the budget wants to cover a few stages at the sizes people work at:
 /// 128 MB is about thirty 1024x1024 uploads, or five at 2048x2048.
+#[cfg(target_arch = "wasm32")]
+const UPLOAD_BUDGET: usize = 48 << 20;
+#[cfg(not(target_arch = "wasm32"))]
 const UPLOAD_BUDGET: usize = 128 << 20;
 
 /// Kept whatever the budget says: the source and a stage either side of it.
@@ -57,6 +64,8 @@ pub struct GpuRenderer {
     pipelines: HashMap<String, Prepared>,
     /// (content key, bytes held, view) for the images uploaded most recently.
     uploads: Vec<(u64, usize, wgpu::TextureView)>,
+    /// Set if the driver takes the device away, which nothing here can undo.
+    lost: std::sync::Arc<std::sync::Mutex<Option<String>>>,
 }
 
 impl GpuRenderer {
@@ -91,6 +100,21 @@ impl GpuRenderer {
             log::error!("wgpu: {error}");
         }));
 
+        // A device can be taken away mid-session -- memory exhausted, the GPU
+        // process restarted, the driver resetting.  Every later call then
+        // fails for a reason the caller cannot see, so the reason is kept.
+        let lost = std::sync::Arc::new(std::sync::Mutex::new(None));
+        {
+            let lost = lost.clone();
+            device.set_device_lost_callback(move |reason, message| {
+                let note = format!("{reason:?}: {message}");
+                log::error!("wgpu device lost -- {note}");
+                if let Ok(mut slot) = lost.lock() {
+                    *slot = Some(note);
+                }
+            });
+        }
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("gltcstdio-sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -108,6 +132,7 @@ impl GpuRenderer {
             sampler,
             pipelines: HashMap::new(),
             uploads: Vec::new(),
+            lost,
         })
     }
 
@@ -395,6 +420,11 @@ impl GpuRenderer {
         let built = self.prepare(spec, gpu).err().map(|e| e.to_string());
         let reported = self.device.pop_error_scope().await.map(|e| e.to_string());
         built.or(reported)
+    }
+
+    /// Why the device was taken away, if it was.
+    pub fn lost(&self) -> Option<String> {
+        self.lost.lock().ok().and_then(|slot| slot.clone())
     }
 
     /// Drop the cached uploads, releasing the device memory they hold.
